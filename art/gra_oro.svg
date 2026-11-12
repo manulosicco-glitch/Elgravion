@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" width="512" height="512">
+  <title>GRA — moneta di gioco di Elgravion: cinque Fari Sacri in rilievo</title>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fdeeb4"/><stop offset=".3" stop-color="#d4a443"/>
+      <stop offset=".52" stop-color="#f6db8c"/><stop offset=".78" stop-color="#8f661c"/><stop offset="1" stop-color="#e6c066"/>
+    </linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2bb5e"/><stop offset=".5" stop-color="#b8892e"/><stop offset="1" stop-color="#8a6219"/>
+    </linearGradient>
+    <radialGradient id="fieldR" cx=".42" cy=".38" r=".7">
+      <stop offset="0" stop-color="#f0cf78"/><stop offset=".6" stop-color="#c0922f"/><stop offset="1" stop-color="#7d5814"/>
+    </radialGradient>
+    <linearGradient id="relief" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff6cf"/><stop offset=".45" stop-color="#f1cf72"/><stop offset="1" stop-color="#b8892e"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>
+    <!-- Faro (verticale: base vicino al centro, lanterna verso l'esterno) -->
+    <g id="faro">
+      <path d="M-13 -46 L13 -46 L9 -104 L-9 -104 Z"/>
+      <path d="M-15 -104 H15 V-111 H-15 Z"/>
+      <path d="M-9 -111 H9 V-129 H-9 Z"/>
+      <path d="M-12 -129 H12 L0 -146 Z"/>
+      <circle cx="0" cy="-149" r="3.5"/>
+    </g>
+    <g id="faroDett" fill="none" stroke-width="2.4" stroke-linecap="round">
+      <path d="M-11 -66 H11 M-10 -86 H10"/>
+      <path d="M-3 -111 V-129 M3 -111 V-129"/>
+      <path d="M-4 -46 V-56 Q0 -61 4 -56 V-46"/>
+    </g>
+  </defs>
+
+  <g filter="url(#sh)">
+    <!-- Bordo ottagonale -->
+    <polygon points="256,14 427,85 498,256 427,427 256,498 85,427 14,256 85,85" fill="url(#gold)" stroke="#3d2906" stroke-width="4"/>
+    <polygon points="256,42 407,105 470,256 407,407 256,470 105,407 42,256 105,105" fill="none" stroke="#6d4c12" stroke-width="3"/>
+    <polygon points="256,48 403,109 464,256 403,403 256,464 109,403 48,256 109,109" fill="url(#field)"/>
+    <!-- Perline sul bordo interno -->
+    <g fill="#f6dc8f" stroke="#6d4c12" stroke-width="1.5" id="beads">
+      <circle cx="256.0" cy="72.0" r="4.5"/><circle cx="303.6" cy="78.3" r="4.5"/><circle cx="348.0" cy="96.7" r="4.5"/><circle cx="386.1" cy="125.9" r="4.5"/><circle cx="415.3" cy="164.0" r="4.5"/><circle cx="433.7" cy="208.4" r="4.5"/><circle cx="440.0" cy="256.0" r="4.5"/><circle cx="433.7" cy="303.6" r="4.5"/><circle cx="415.3" cy="348.0" r="4.5"/><circle cx="386.1" cy="386.1" r="4.5"/><circle cx="348.0" cy="415.3" r="4.5"/><circle cx="303.6" cy="433.7" r="4.5"/><circle cx="256.0" cy="440.0" r="4.5"/><circle cx="208.4" cy="433.7" r="4.5"/><circle cx="164.0" cy="415.3" r="4.5"/><circle cx="125.9" cy="386.1" r="4.5"/><circle cx="96.7" cy="348.0" r="4.5"/><circle cx="78.3" cy="303.6" r="4.5"/><circle cx="72.0" cy="256.0" r="4.5"/><circle cx="78.3" cy="208.4" r="4.5"/><circle cx="96.7" cy="164.0" r="4.5"/><circle cx="125.9" cy="125.9" r="4.5"/><circle cx="164.0" cy="96.7" r="4.5"/><circle cx="208.4" cy="78.3" r="4.5"/>
+    </g>
+    <!-- Campo circolare ribassato -->
+    <circle cx="256" cy="256" r="172" fill="#5c400e"/>
+    <circle cx="256" cy="256" r="168" fill="url(#fieldR)"/>
+    <circle cx="256" cy="256" r="168" fill="none" stroke="#fff3c4" stroke-opacity=".5" stroke-width="2" transform="translate(-1.5 -1.5)"/>
+
+    <!-- Geometria: pentagono e pentagramma incisi che uniscono le lanterne -->
+    <g transform="translate(256 262)" fill="none" stroke-linejoin="round">
+      <polygon points="0,-138 131.2,-42.6 81.1,111.6 -81.1,111.6 -131.2,-42.6" stroke="#5c400e" stroke-width="5" transform="translate(1.5 2)"/>
+      <polygon points="0,-138 131.2,-42.6 81.1,111.6 -81.1,111.6 -131.2,-42.6" stroke="#fbe7a6" stroke-width="3"/>
+      <circle r="62" stroke="#5c400e" stroke-width="4" transform="translate(1.5 2)"/>
+      <circle r="62" stroke="#fbe7a6" stroke-width="2.5"/>
+    </g>
+
+    <!-- Cinque Fari in rilievo: ombra, luce, corpo -->
+    <g transform="translate(256 262)">
+      <g fill="#4a320a" transform="translate(3 4)">
+        <use xlink:href="#faro"/><use xlink:href="#faro" transform="rotate(72)"/><use xlink:href="#faro" transform="rotate(144)"/><use xlink:href="#faro" transform="rotate(216)"/><use xlink:href="#faro" transform="rotate(288)"/>
+      </g>
+      <g fill="#fff8dc" transform="translate(-1.5 -1.5)">
+        <use xlink:href="#faro"/><use xlink:href="#faro" transform="rotate(72)"/><use xlink:href="#faro" transform="rotate(144)"/><use xlink:href="#faro" transform="rotate(216)"/><use xlink:href="#faro" transform="rotate(288)"/>
+      </g>
+      <g fill="url(#relief)" stroke="#6d4c12" stroke-width="1.5" stroke-linejoin="round">
+        <use xlink:href="#faro"/><use xlink:href="#faro" transform="rotate(72)"/><use xlink:href="#faro" transform="rotate(144)"/><use xlink:href="#faro" transform="rotate(216)"/><use xlink:href="#faro" transform="rotate(288)"/>
+      </g>
+      <g stroke="#8f661c">
+        <use xlink:href="#faroDett"/><use xlink:href="#faroDett" transform="rotate(72)"/><use xlink:href="#faroDett" transform="rotate(144)"/><use xlink:href="#faroDett" transform="rotate(216)"/><use xlink:href="#faroDett" transform="rotate(288)"/>
+      </g>
+      <!-- Mozzo centrale -->
+      <circle r="34" fill="#4a320a" transform="translate(3 4)"/>
+      <circle r="34" fill="url(#relief)" stroke="#6d4c12" stroke-width="2"/>
+      <circle r="24" fill="none" stroke="#8f661c" stroke-width="2.5"/>
+      <path d="M0 -14 L4 -4 L14 0 L4 4 L0 14 L-4 4 L-14 0 L-4 -4 Z" fill="#fff4c8" stroke="#8f661c" stroke-width="1.5"/>
+    </g>
+  </g>
+</svg>
