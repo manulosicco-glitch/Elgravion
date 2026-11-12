@@ -640,7 +640,11 @@ function spellFx(g,p,n,t){
       break; }
   }
 }
+// Cicli costruiti con più azioni nello stesso turno (es. Stelle gratuite + Minatore di Valborea): massimo 20 per turno.
+function turnLoopOk(g,key,label){ g.tloops=g.tloops||{}; const k=(g.tloops[key]||0)+1; g.tloops[key]=k;
+  if(k>LOOP_MAX){ if(k===LOOP_MAX+1) log(g,`Ciclo interrotto: ${label} si sono già attivate ${LOOP_MAX} volte in questo turno.`); return false; } return true; }
 function onStar(g,p,t){
+  if(!turnLoopOk(g,'Stelle:'+p.i,'le Stelle di '+p.name)) return;
   const tu=t&&t[0]&&t[0]!=='hero'&&g.units[t[0]];
   for(const u of minionsOf(g,p)){
     if(u.silenced) continue;
@@ -852,7 +856,7 @@ function fogWave(g,p){
   if(g.fogN===1) log(g,`Prima ondata: ${opp(g,p).name} pesca una carta in più.`);
 }
 function startTurn(g){
-  g.loops={}; const p=g.players[g.cur], o=opp(g,p);
+  g.loops={}; g.tloops={}; const p=g.players[g.cur], o=opp(g,p);
   p.ownTurns++; g.turn++;
   p.graMax=Math.min(MAXGRA,p.graMax+1); p.gra=p.graMax + (p.riscattoNext||0); p.riscattoNext=0; p.powerUsed=false;
   if(p.graMax===MAXGRA && !p.discountChecked){
