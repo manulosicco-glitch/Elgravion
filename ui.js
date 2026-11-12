@@ -222,6 +222,25 @@ function toggleFs(){
 }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bFs'); if(b){ e.preventDefault(); toggleFs(); } });
 ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{ document.querySelectorAll('#bFs').forEach(b=>b.textContent=FS_EL()?'🗗':'⛶'); if(G) setTimeout(()=>{ try{ fitHand(); render(); }catch(e){} },120); }));
+// ======================= INSTALLA APP
+let INSTALL_EV=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); INSTALL_EV=e; document.querySelectorAll('.instw').forEach(x=>x.style.display=''); });
+window.addEventListener('appinstalled',()=>{ INSTALL_EV=null; document.querySelectorAll('.instw').forEach(x=>x.style.display='none'); try{ toast('Elgravion installato!'); }catch(e){} });
+function isInstalled(){ return !!(window.claude || (window.matchMedia&&(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone); }
+function instBtn(){ return isInstalled()?'':`<span class="instw"><button class="btn sm" id="bInst" title="Installa il gioco come app">⬇</button><span>Installa</span></span>`; }
+function installApp(){
+  if(INSTALL_EV){ const e=INSTALL_EV; INSTALL_EV=null; e.prompt(); e.userChoice.then(c=>{ if(c.outcome!=='accepted') INSTALL_EV=e; }).catch(()=>{}); return; }
+  const ua=navigator.userAgent, ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1), android=/Android/.test(ua), safariMac=/Macintosh/.test(ua)&&/Safari/.test(ua)&&!/Chrome|Edg/.test(ua), firefox=/Firefox/.test(ua);
+  let how;
+  if(ios) how='Apri questa pagina con <b>Safari</b>, tocca <b>Condividi</b> (il quadrato con la freccia in su) e poi <b>Aggiungi alla schermata Home</b>.';
+  else if(android) how='Apri il menu <b>⋮</b> di Chrome in alto a destra e scegli <b>Installa app</b> (o <b>Aggiungi a schermata Home</b>).';
+  else if(safariMac) how='Nel menu <b>File</b> di Safari scegli <b>Aggiungi al Dock</b>.';
+  else if(firefox) how='Firefox per computer non installa le app web: apri questa pagina con <b>Chrome</b> o <b>Edge</b> e premi il pulsante Installa.';
+  else how='Apri questa pagina con <b>Chrome</b> o <b>Edge</b>: clicca l’icona <b>Installa</b> (un monitor con la freccia) a destra nella barra degli indirizzi, oppure menu <b>⋮</b> → <b>Trasmetti, salva e condividi</b> → <b>Installa pagina come app</b>.';
+  modal(`<h3>Installa Elgravion</h3><p class="note" style="max-width:440px;margin:0 auto 14px;font-size:16px;line-height:1.45">${how}</p><p class="note" style="max-width:440px;margin:0 auto 14px">Dopo l’installazione il gioco si apre come un’app e funziona anche senza internet.</p><div class="row"><button class="btn" id="mInstOk">Ho capito</button></div>`);
+  $('#mInstOk').onclick=closeModal;
+}
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bInst'); if(b){ e.preventDefault(); installApp(); } });
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
 function bindSet(){ const b=$('#bSet'); if(b) b.onclick=()=>settingsBox(); }
 function settingsBox(){
@@ -293,7 +312,7 @@ function menu(msg){
   G=null; NET&&NET.leave&&NET.leave(); NET=null; sel=null;
   app.innerHTML=`<div class="menu">
     <div class="mbg"><div class="mmap"></div><div class="mfog f1"></div><div class="mfog f2"></div><div class="members">${Array.from({length:26},(_,i)=>`<i style="left:${(i*37)%100}%;animation-delay:${(i*0.73)%9}s;animation-duration:${7+(i*1.3)%6}s"></i>`).join('')}</div></div>
-    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span></div><div class="mside r">${setBtn()}<span>Impostazioni</span></div>
+    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span></div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}</div>
     <header class="mhead"><div class="mtitle2"><span class="orn l"></span><h1>ELGRAVION</h1><span class="orn r"></span></div><div class="sub">Gioco di carte · Primo Set</div></header>
     <div class="mgrid">
     <nav class="mcol left"><div class="mcolh">Grimorio</div>
