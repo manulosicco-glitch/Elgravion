@@ -908,8 +908,15 @@ img.gi{width:1.25em;height:1.25em;vertical-align:-.3em;display:inline-block}
 <script src="ui.js"></script>
 <script>
 if('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.claude){
+  const hadCtrl=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadCtrl||document.querySelector('.upd')) return;
+    const b=document.createElement('div'); b.className='upd'; b.innerHTML='Nuova versione pronta <button>Aggiorna</button>';
+    b.querySelector('button').onclick=()=>location.reload(); document.body.appendChild(b);
+  });
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').then(r=>{
-    r.addEventListener('updatefound',()=>{ const w=r.installing; w&&w.addEventListener('statechange',()=>{ if(w.state==='installed'&&navigator.serviceWorker.controller){ const b=document.createElement('div'); b.className='upd'; b.innerHTML='Nuova versione disponibile <button>Aggiorna</button>'; b.querySelector('button').onclick=()=>{ navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload()); (r.waiting||w).postMessage('skip'); }; document.body.appendChild(b); } }); });
+    if(r.waiting) r.waiting.postMessage('skip');
+    setInterval(()=>r.update().catch(()=>{}),30*60*1000);
   }).catch(()=>{}));
 }
 </script>
