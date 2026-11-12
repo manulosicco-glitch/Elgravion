@@ -326,7 +326,7 @@ function resolvePending(g,pi,choice){
     }
     if(pd.then==='profondo'){
       const stars=p.hand.filter(h=>h.n&&card(h.n).star).length; const o=opp(g,p);
-      for(let j=0;j<stars;j++){ const tg=pick(g,[...minionsOf(g,o).filter(u=>!hasKw(u,'Estraneo')&&!u.inCaccia),'hero']); if(tg==='hero') heroDamage(g,o,1); else if(tg) damage(g,tg,1); }
+      for(let j=0;j<stars;j++){ const ms=minionsOf(g,o).filter(u=>g.units[u.uid]&&hpLeft(u)>0&&!hasKw(u,'Estraneo')&&!u.inCaccia); const mx=Math.max(...ms.map(hpLeft)); const tg=ms.length?pick(g,ms.filter(u=>hpLeft(u)===mx)):'hero'; if(tg==='hero') heroDamage(g,o,1); else damage(g,tg,1); }
       checkDeaths(g);
     }
   } else if(pd.type==='analizza'){
