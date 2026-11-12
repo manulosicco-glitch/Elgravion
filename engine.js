@@ -29,7 +29,7 @@ const DECKS={
 // tipi: ally, enemy, any (seguaci), enemyAtk3, enemy2 (due seguaci nemici diversi), piombo (eroe o seguace)
 const TARGETS={
  'Frammento Alieno':['ally'], 'Richiamo delle Onde':['enemy','enemy2'], 'Esattore della Camera Rossa':['anyOpt'],
- 'Stella di Piombo':['piombo'], 'Stella di Adamantio':['ally'], 'Pietra Meteorica':['any'],
+ 'Stella di Piombo':['piombo'], 'Stella di Adamantio':['allyStar'], 'Pietra Meteorica':['any'],
  'Leviatano della Baia della Giustizia':['enemyAtk3Opt'], 'Vendetta degli Ungart':['any'], 'Agguato nelle Gallerie':['any','allyOpt'], 'Bisturi Runico':['any'], 'Rito di Legame':['allyDrago'],
  'Cripiosauro':['enemyOpt'], 'Lysara':['enemyOpt'],
  "Veggente della Corona di Ghiaccio":['divinaOpt'], "Incastonatore di Valborea":['divinaOpt'], "Novizio dei Cinque Clan":['divinaOpt'], "Sciame delle Chiaviche":['divinaOpt'], "Portamappe Eley":['divinaOpt'], "Becchino dell'Orologio":['divinaOpt'], "Ampolla della Giungla":['divinaOpt'], "Polena di CrimsonHolt":['divinaOpt'], "Sorvegliante delle Covate":['divinaOpt'], "Magga Sentinella":['divinaOpt'], "Gemello Scisso":['divinaOpt'],
@@ -112,7 +112,7 @@ function isStrofa(u){ return u.kind==='minion' && !u.silenced && /Strofa:/.test(
 const STAT_MAX=20;
 function stat(u){ return {a:Math.min(STAT_MAX,Math.max(0,u.baseA+u.buffA+u.auraA)), d:Math.min(STAT_MAX,u.baseD+u.buffD+u.auraD)}; }
 // Limite ai cicli: lo stesso effetto (per carta) si attiva al massimo 20 volte per azione o inizio turno.
-const LOOP_MAX=20;
+const LOOP_MAX=15, STAR_MAX=5;
 function loopOk(g,key){ g.loops=g.loops||{}; const k=(g.loops[key]||0)+1; g.loops[key]=k;
   if(k>LOOP_MAX){ if(k===LOOP_MAX+1){ const [ev,n]=key.split(':'); log(g,`Ciclo interrotto: ${n?n+' ('+ev+')':ev} si è già attivato ${LOOP_MAX} volte.`); } return false; } return true; }
 function hpLeft(u){ return stat(u).d-u.dmg; }
@@ -392,7 +392,8 @@ function legalTargets(g,p,kind){
     case 'enemy': case 'enemy2': return theirs.map(u=>u.uid);
     case 'any': return [...mine.filter(u=>u.n!=='Strephey'),...theirs].map(u=>u.uid);
     case 'enemyAtk3': return theirs.filter(u=>stat(u).a<=3).map(u=>u.uid);
-    case 'piombo': return ['hero',...mine.map(u=>u.uid)];
+    case 'piombo': return ['hero',...mine.filter(u=>(u.stars||0)<STAR_MAX).map(u=>u.uid)];
+    case 'allyStar': return mine.filter(u=>(u.stars||0)<STAR_MAX).map(u=>u.uid);
     case 'allyRoom': return mine.filter(u=>hasRoom(g,u)).map(u=>u.uid);
     case 'protAny': return [...mine,...theirs].filter(u=>u.prot&&u.prot.length).map(u=>u.uid);
     case 'allyDrago': return mine.filter(u=>u.tribe==='Drago').map(u=>u.uid);
@@ -640,10 +641,11 @@ function spellFx(g,p,n,t){
       break; }
   }
 }
-// Cicli costruiti con più azioni nello stesso turno (es. Stelle gratuite + Minatore di Valborea): massimo 20 per turno.
+// Cicli costruiti con più azioni nello stesso turno (es. Stelle gratuite + Minatore di Valborea): massimo LOOP_MAX per turno.
 function turnLoopOk(g,key,label){ g.tloops=g.tloops||{}; const k=(g.tloops[key]||0)+1; g.tloops[key]=k;
   if(k>LOOP_MAX){ if(k===LOOP_MAX+1) log(g,`Ciclo interrotto: ${label} si sono già attivate ${LOOP_MAX} volte in questo turno.`); return false; } return true; }
 function onStar(g,p,t){
+  { const su=t&&t[0]&&t[0]!=='hero'&&g.units[t[0]]; if(su) su.stars=(su.stars||0)+1; }
   if(!turnLoopOk(g,'Stelle:'+p.i,'le Stelle di '+p.name)) return;
   const tu=t&&t[0]&&t[0]!=='hero'&&g.units[t[0]];
   for(const u of minionsOf(g,p)){
@@ -1213,6 +1215,6 @@ function deckCheck(cls,list){
   const rules=[[tot===DECK_SIZE,`${tot}/${DECK_SIZE} carte`],[leg>=1,'Almeno 1 leggendaria'],[com>=4,'Almeno 4 comuni'],[inc>=1,'Almeno 1 Incanto'],[rit>=1,'Almeno 1 Rituale']];
   return {ok:!errs.length&&rules.every(r=>r[0]),tot,rules,errs};
 }
-const API={FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
+const API={STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
 if(typeof module!=='undefined') module.exports=API; else root.Engine=API;
 })(this);

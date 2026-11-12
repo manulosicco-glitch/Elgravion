@@ -373,7 +373,7 @@ const RULES=[
  ['Sconto di recupero','Quando il GRA arriva a 11, chi ha meno slot colorati dell\'avversario ottiene una volta 1 GRA di sconto sulla carta nel Pegno.'],
  ['Mutazione','A 20 PF o meno il tuo eroe Muta: il potere eroe cambia e si attiva la Maledizione, un passivo con un bonus e un prezzo. È permanente. Se passi da sopra 20 a 0 in un colpo muori senza mutare.'],
  ['Nebbia','Pescare con il mazzo vuoto infligge danni crescenti: 1, poi 2, poi 3… Alla quinta volta l\'eroe Muta subito, anche sopra 20 PF.'],
- ['Limiti','Un seguace può avere al massimo 20 Attacco e 20 Difesa. Se più carte si attivano a vicenda in un ciclo, lo stesso effetto si ripete al massimo 20 volte per azione: poi il ciclo si interrompe.'],
+ ['Limiti','Un seguace può avere al massimo 20 Attacco e 20 Difesa. Se più carte si attivano a vicenda in un ciclo, lo stesso effetto si ripete al massimo 15 volte (per le Stelle: 15 volte per turno): poi il ciclo si interrompe. Un seguace può ricevere al massimo 5 Stelle.'],
  ['Ondata di Nebbia','Quando il giocatore che ha iniziato arriva al suo 10° turno (e poi al 20°, al 30°…) la Nebbia avanza: infligge 2 danni a tutti i seguaci in gioco, di entrambi i giocatori, poi ogni giocatore pesca una carta (alla prima ondata chi gioca per secondo ne pesca due). Se la carta pescata è un Seguace, quando lo giochi ottiene <b>Mutare</b>. Lo Scaglia assorbe i danni; i Domini non vengono colpiti. A destra dei Pegni trovi quanti turni mancano.'],
  ['Potere eroe','Costa 2 GRA e si usa una volta per turno. Cambia quando l\'eroe Muta.'],
  ['Dominio','Un luogo di Elgravion. Occupa 2 slot vicini; massimo 1 per giocatore. Ha PF ma i seguaci non possono attaccarlo: lo distruggono solo Rituali o effetti specifici. Se viene distrutto il tuo GRA massimo scende di 1.'],
@@ -1382,6 +1382,7 @@ function unitClick(uid,legalT){
   if(u.n==='Uovo di Magga') extra.push('Si schiude dopo 2 tuoi turni (ora: '+(u.age||0)+').');
   if(u.ctrl!=null&&u.ctrl!==u.owner) extra.push('Infiltrato: non può attaccare. Quando muore, infligge 4 danni a un seguace accanto.');
   if(u.tempra) extra.push('Tempra: '+u.tempra+' carica/e.');
+  if(u.stars) extra.push('Stelle ricevute: '+u.stars+'/'+(E.STAR_MAX||5)+(u.stars>=(E.STAR_MAX||5)?' — non può riceverne altre.':'.'));
   sel=null; render();
   modal(`${bigCard(c,u)}${extra.map(x=>`<div class="note" style="margin:8px auto 0">${esc(x)}</div>`).join('')}<div class="row" style="margin-top:10px"><button class="btn" id="mClose">Chiudi</button></div>`);
   $('#mClose').onclick=closeModal;
