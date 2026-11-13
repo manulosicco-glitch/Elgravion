@@ -1710,7 +1710,7 @@ function endParticles(d,win){ const box=d.querySelector('.endfx'); if(!box) retu
 function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
-  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; const x=srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; G.__rankRes=x; } } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
+  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
     clearFx(); const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};
@@ -1982,17 +1982,18 @@ function srvEnd(net,g){
     if(x.status==='done'&&d&&d.reward){ g.__rew=Object.assign({},d.reward); syncProfile(); }
     else if(g.__rew&&g.__rew.pending) g.__rew={none:1,why:x.status==='done'?'':'Partita non valida: nessun premio.'};
     if(!g.ranked){ const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); return; }
+    RANK_HOLD=0;
     if(x.status==='done'&&d){ await rankPull(true); g.__rankRes={before:d.before,after:d.after,note:d.note,win:d.win};
       if((d.win?1:0)!==(g.winner===me?1:0)) toast('Il server ha corretto il risultato: '+(d.win?'vittoria':'sconfitta')+'.'); }
-    else g.__rankRes={void:true,note:'Partita non valida per la Classificata: rango invariato.'};
+    else { await rankPull(true); g.__rankRes={void:true,note:'Partita non valida per la Classificata: rango invariato.'}; if(G!==g) toast('Classificata: partita annullata dal server, rango invariato.'); }
     paint(); const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); }); }catch(e){}
-  setTimeout(()=>{ if(!g.__rankFinal){ try{ off&&off(); }catch(e){} } },300000);
+  setTimeout(()=>{ if(!g.__rankFinal){ try{ off&&off(); }catch(e){} RANK_HOLD=0; rankPull(true); } },300000);
   return res;
 }
 // legge il rango ufficiale dal server e lo usa al posto di quello salvato nel browser
-let RANK_PULL_T=0;
+let RANK_PULL_T=0, RANK_HOLD=0; // RANK_HOLD: fino a quando il risultato provvisorio di fine partita non va sovrascritto
 async function rankPull(force){
-  if(!SRV()||(!force&&Date.now()-RANK_PULL_T<20000)) return; RANK_PULL_T=Date.now();
+  if(!SRV()||(!force&&(Date.now()<RANK_HOLD||Date.now()-RANK_PULL_T<20000))) return; RANK_PULL_T=Date.now();
   try{ const x=await ELG_NET.rk.myRank(); if(!x||!x.r) return; const r=rankLoad(), s=x.r; if(s.season!==r.season) return;
     const was=JSON.stringify(r);
     for(const k of ['tier','lvl','pend','rating','wins','losses','streak','best']) if(s[k]!=null) r[k]=s[k];
@@ -2076,7 +2077,7 @@ function rankResult(win,opp){
 function rankEndHtml(){ const x=G&&G.__rankRes; if(!x) return ''; const r=rankLoad();
   if(x.pending||x.void) return `<div class="rkend ${x.void?'void':'wait'}" style="--tc:${TIERS[r.tier].col}">${manifestHtml(r)}<div><b>${esc(rankName(r))}</b>${pendHtml(r)}<small>${x.void?esc(x.note):'⏳ Il server sta verificando la partita…'}</small></div></div>`;
   const up=x.after.tier>x.before.tier||(x.after.tier===x.before.tier&&x.after.lvl<x.before.lvl), down=x.after.tier===x.before.tier&&x.after.lvl>x.before.lvl;
-  return `<div class="rkend ${x.win?'win':'loss'} ${up?'up':''} ${down?'down':''}" style="--tc:${TIERS[r.tier].col}">${manifestHtml(r)}<div><b>${esc(rankName(r))}</b>${pendHtml(r)}<small>${esc(x.note)} · valore ${rankValue(r).toLocaleString('it-IT')} GRA</small></div></div>`; }
+  return `<div class="rkend ${x.win?'win':'loss'} ${up?'up':''} ${down?'down':''}" style="--tc:${TIERS[r.tier].col}">${manifestHtml(r)}<div><b>${esc(rankName(r))}</b>${pendHtml(r)}<small>${esc(x.note)} · valore ${rankValue(r).toLocaleString('it-IT')} GRA${x.prov?' · ⏳ conferma del server…':''}</small></div></div>`; }
 function rankInfo(){ const r=rankLoad(); return {tier:r.tier,lvl:r.lvl,pend:r.pend,rating:Math.round(r.rating)}; }
 // ---- manifesto (grado visivo) ----
 function pendHtml(r){ return r.tier===CREMISI?`<span class="rkrating">${Math.round(r.rating)} pt</span>`:`<span class="pends">${Array.from({length:PEND},(_,i)=>`<i class="${i<r.pend?'on':''}"></i>`).join('')}</span>`; }
