@@ -878,7 +878,8 @@ function startTurn(g){
   p.heroA=0; p.heroAttacked=false;
   for(const u of minionsOf(g,p)){
     if(u.silenced) continue; u.age=(u.age||0)+1;
-    if(u.n==='Uovo di Magga' && u.age>=1) levelUp(g,u);
+    const stall=minionsOf(g,p).some(x=>x.n==='Stalliere Imperiale'&&empatia(g,x));
+    if(u.n==='Uovo di Magga' && u.age>=(stall?0:1)) levelUp(g,u);
     if(u.n==='Stalliere Imperiale' && u.age>=1 && !u.stallDone){ u.stallDone=true; if(summonToken(g,p,'Uovo di Magga',0,2)) log(g,`Stalliere Imperiale porta un Uovo di Magga.`); }
     else if((u.n==='Cucciolo di Magga' || (u.n==='Magga Giovane'&&u.grown)) && u.age>=1) levelUp(g,u);
     if(p.cls==='scudiera'&&p.mutated&&u.scaglia<u.scagliaMax) u.scaglia=u.scagliaMax;
