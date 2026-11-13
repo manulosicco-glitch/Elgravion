@@ -3,14 +3,16 @@
     "rooms": {
       "$room": {
         ".read": "auth != null",
-        ".write": "auth != null && !newData.exists()",
+        ".write": "auth != null && !newData.exists() && !$room.beginsWith('elg-rk')",
         "peers": {
           "$peer": {
             ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)"
           }
         },
         "msgs": {
-          ".indexOn": ["t"],
+          ".indexOn": [
+            "t"
+          ],
           "$msg": {
             ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid && newData.child('t').val() === now",
             ".validate": "newData.hasChildren(['topic', 'from', 'uid', 't']) && newData.child('topic').isString() && newData.child('topic').val().length < 12"
@@ -20,7 +22,9 @@
     },
     "ranks": {
       ".read": true,
-      ".indexOn": ["rating"],
+      ".indexOn": [
+        "rating"
+      ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid && root.child('config/rankedServer').val() !== true"
       }
@@ -29,10 +33,37 @@
       ".read": true,
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
-        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 40" },
-        "$other": { ".validate": false }
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 40"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
-    "config": { ".read": true, ".write": false }
+    "config": {
+      ".read": true,
+      ".write": false
+    },
+    "ranked": {
+      "$room": {
+        ".read": "auth != null",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && $room.beginsWith('elg-rk')",
+            ".validate": "newData.hasChild('cls') && newData.child('cls').isString() && (newData.hasChild('hc') || newData.hasChild('gn'))"
+          }
+        },
+        "end": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('ranked/'+$room+'/players/'+$uid).exists() && !root.child('ranked/'+$room+'/result').exists()",
+            ".validate": "newData.hasChild('priv') && newData.child('priv').isNumber()"
+          }
+        },
+        "result": {
+          ".write": false
+        }
+      }
+    }
   }
 }

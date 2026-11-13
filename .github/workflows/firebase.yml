@@ -2,7 +2,7 @@ name: Pubblica il server Firebase
 on:
   push:
     branches: [main]
-    paths: ['firebase/**']
+    paths: ['firebase/**', 'engine.js', 'data.js']
   workflow_dispatch:
 jobs:
   deploy:
@@ -19,5 +19,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          if [ -d functions ]; then (cd functions && npm ci); fi
-          npx -y firebase-tools@latest deploy --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --force
+          mkdir -p functions/game && cp ../engine.js ../data.js functions/game/
+          (cd functions && npm ci --no-audit --no-fund)
+          npx -y firebase-tools@latest deploy --project "${{ vars.FIREBASE_PROJECT_ID }}" --only database,functions --non-interactive --force
+          npx -y firebase-tools@latest database:set /config/rankedServer --data true --project "${{ vars.FIREBASE_PROJECT_ID }}" --instance elgravion-default-rtdb --force

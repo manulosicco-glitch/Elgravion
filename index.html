@@ -1142,6 +1142,15 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 .emoinfo .efo{margin-top:5px;padding-top:4px;border-top:1px dashed #ffffff22;color:#a99d8e;font-size:10.5px}
 .emoinfo .efo.on{color:#ffe08a}
 .emoinfo .efo b{color:inherit}
+.rkend.wait small{color:#e9d9a8;animation:rkWait 1.4s ease-in-out infinite}@keyframes rkWait{50%{opacity:.45}}
+.rkend.void{opacity:.8;border-style:dashed}
+@media (max-height:900px) and (min-width:700px){
+  .box.endbox{max-width:min(94vw,720px)!important}
+  .endfx{display:grid!important;grid-template-columns:minmax(0,1fr) auto;column-gap:22px;align-items:center}
+  .endfx>*:not(.endmvp):not(.endrays):not(i){grid-column:1}
+  .endmvp{grid-column:2;grid-row:1 / span 9}
+  .mvpcard{width:150px!important}
+}
 </style>
 </head>
 <body>

@@ -1,0 +1,11 @@
+{
+  "name": "elgravion-functions",
+  "private": true,
+  "description": "Arbitro della Classificata di Elgravion",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0"
+  }
+}

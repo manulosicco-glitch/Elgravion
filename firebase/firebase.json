@@ -1,3 +1,20 @@
 {
-  "database": { "rules": "database.rules.json" }
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.log"
+      ],
+      "predeploy": [
+        "mkdir -p \"$RESOURCE_DIR/game\" && cp \"$RESOURCE_DIR/../../engine.js\" \"$RESOURCE_DIR/../../data.js\" \"$RESOURCE_DIR/game/\""
+      ]
+    }
+  ]
 }

@@ -120,10 +120,24 @@
     }
   };
 
+  // ---------- Classificata con arbitro sul server ----------
+  let rankedFlag = !!window.ELG_RANKED_SERVER;
+  async function checkRanked(){
+    try { await init(); const s = await firebase.database().ref('config/rankedServer').once('value'); rankedFlag = rankedFlag || s.val() === true; } catch (e) {}
+    return rankedFlag;
+  }
+  const rk = {
+    async register(room, data){ const u = await needUser(); await firebase.database().ref('ranked/' + room + '/players/' + u.uid).set(clean(data)); return u.uid; },
+    async players(room){ await init(); const s = await firebase.database().ref('ranked/' + room + '/players').once('value'); return s.val() || {}; },
+    async end(room, priv){ const u = await needUser(); await firebase.database().ref('ranked/' + room + '/end/' + u.uid).set({ priv: priv >>> 0, t: firebase.database.ServerValue.TIMESTAMP }); return u.uid; },
+    onResult(room, cb){ const ref = firebase.database().ref('ranked/' + room + '/result'); const f = s => { if (s.exists()) cb(s.val()); }; ref.on('value', f); return () => ref.off('value', f); },
+    async myRank(){ const u = await currentUser(); if (!u) return null; const s = await firebase.database().ref('ranks/' + u.uid).once('value'); return { uid: u.uid, r: s.val() }; }
+  };
+
   window.ELG_NET = {
     online: true,
     // la Classificata fuori da claude.ai si accende solo quando l'arbitro sul server è pronto
-    ranked: !!window.ELG_RANKED_SERVER,
+    get ranked(){ return rankedFlag; }, checkRanked, rk,
     async use(kind){ await init(); return kind === 'room' ? roomApi : kind === 'db' ? dbApi : kind === 'user' ? userApi : null; },
     signIn, currentUser,
     async signOut(){ await init(); await firebase.auth().signOut(); }

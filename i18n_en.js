@@ -240,6 +240,7 @@ words: {
 },
 // ---------- Interface: exact texts
 ui: {
+"⏳ Il server sta verificando la partita…":"⏳ The server is verifying the match…","Partita non valida per la Classificata: rango invariato.":"Match not valid for Ranked: rank unchanged.","Partita classificata non valida: annullata.":"Invalid ranked match: cancelled.","Classificata: registrazione sul server non riuscita. Riprova.":"Ranked: server registration failed. Try again.",
 "Ruota il telefono in orizzontale":"Rotate your phone to landscape","Elgravion si gioca col telefono in orizzontale":"Elgravion is played with your phone in landscape",
 "Gioco di carte · Primo Set":"Card game · First Set","Scegli il tuo eroe":"Choose your hero","Grimorio":"Grimoire","Battaglia":"Battle",
 "Collezione":"Collection","Mazzi":"Decks","Pacchetti":"Packs","Glossario":"Glossary","Tutorial":"Tutorial","Negozio":"Shop",
