@@ -372,8 +372,8 @@ function analizza(g,p){
 // ---------- Costi
 const FOCUS_MIN=3;
 // Focus: lo sconto di 1 GRA sugli slot d'Emozione si attiva solo dal 3° slot d'Emozione
-// Adepto (potere base): il Focus parte dal 2° slot
-function focusMin(p){ return (p.cls==='adepto' && !p.mutated) ? 2 : FOCUS_MIN; }
+// Adepto: il Focus si sblocca dal 2° slot e resta così per tutta la partita (anche da Mutato)
+function focusMin(p){ return p.cls==='adepto' ? 2 : FOCUS_MIN; }
 function focusOn(p){ return p.slots.filter(s=>s.emo).length>=focusMin(p); }
 function costOf(g,p,h,slot){
   const c=card(h.n); if(h.free) return 0;
