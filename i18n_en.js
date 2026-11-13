@@ -138,7 +138,7 @@ cards: {
 "Magga Adulta":["Adult Magga","Flight."],
 "Veggente della Corona di Ghiaccio":["Seer of the Ice Crown","Divination: Dig 2."],
 "Incastonatore di Valborea":["Valborea Gemsetter","When you play a Star on a minion, that minion also gains +1 Attack. Divination: add an Adamant Star to your hand."],
-"Novizio dei Cinque Clan":["Novice of the Five Clans","Divination: summon a 2/1 Straxiart."],
+"Novizio dei Cinque Clan":["Novice of the Five Clans","Divination: summon a 2/1 Straxiart with Momentum."],
 "Sciame delle Chiaviche":["Sewer Swarm","Immersion: summon a 1/1 Longtail. Divination: your Longtails gain +1 Attack."],
 "Portamappe Eley":["Eley Map Bearer","Escape Route. Divination: Acquire 1."],
 "Becchino dell'Orologio":["Gravedigger of the Clock","Whenever another of your minions returns with Escape Route, it gains +1/+1. Divination: one of your minions without Escape Route gains it."],

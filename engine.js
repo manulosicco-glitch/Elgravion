@@ -526,7 +526,7 @@ function resolveDivine(g,p){
     switch(d.n){
       case 'Veggente della Corona di Ghiaccio': scava(g,p,2); break;
       case 'Incastonatore di Valborea': addHand(g,p,'Stella di Adamantio'); break;
-      case 'Novizio dei Cinque Clan': summonSpirit(g,p,'straxiart',false); break;
+      case 'Novizio dei Cinque Clan': { const x=summonSpirit(g,p,'straxiart',false); if(x){ x.kw.Momentum=true; } break; }
       case 'Sciame delle Chiaviche': for(const x of minionsOf(g,p)) if(x.tribe==='Codalunga') x.buffA+=1; break;
       case 'Portamappe Eley': draw(g,p); break;
       case "Becchino dell'Orologio": { const a=pick(g,minionsOf(g,p).filter(x=>!hasKw(x,'Via di fuga')&&!x.fugaUsed)); if(a) a.kw['Via di fuga']=true; break; }
