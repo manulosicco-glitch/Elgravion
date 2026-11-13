@@ -796,7 +796,7 @@ function usePower(g,pi,target){
 function immersione(g,p,u){
   switch(u.n){
     case 'Sciame delle Chiaviche': summonToken(g,p,'Codalunga',1,1); break;
-    case 'Monaco del Silenzio': if(!u.onceUsed){ u.onceUsed=true; summonSpirit(g,p,'pashey',false); } break;
+    case 'Monaco del Silenzio': if((u.monacoUses||0)<3){ u.monacoUses=(u.monacoUses||0)+1; summonSpirit(g,p,'pashey',false); } break;
     case 'Custode Zhyol': for(const s of minionsOf(g,p)) if(s.tribe==='Spirito') s.buffD+=1; break;
     case 'Aspirante al Seggio': { const a=pick(g,minionsOf(g,p).filter(x=>x!==u)); const k=empatia(g,u)?2:1; if(a){ a.buffA+=k; a.buffD+=k; } break; }
     case 'Spirito della Vendetta': u.tmpOrd=true; break;
