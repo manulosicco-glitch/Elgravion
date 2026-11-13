@@ -5,7 +5,8 @@
 const { onValueWritten } = require('firebase-functions/v2/database');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
 const crypto = require('crypto');
 const vm = require('vm');
 const { arbitrate } = require('./arbiter.js');
@@ -38,9 +39,9 @@ async function game(){
   return GAME;
 }
 
-admin.initializeApp();
+initializeApp();
 const REGION = 'europe-west1', INSTANCE = 'elgravion-default-rtdb';
-const db = () => admin.database();
+const db = () => getDatabase();
 const rnd = () => crypto.randomBytes(4).readUInt32BE(0) / 4294967296;
 const today = () => new Date().toISOString().slice(0, 10);
 
