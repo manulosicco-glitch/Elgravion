@@ -22,6 +22,7 @@ function normalize(rec, now){
   if (rec && rec.season && rec.season !== season) {
     const nt = r.tier === CREMISI ? 3 : Math.max(0, r.tier - 1), nl = r.tier === CREMISI ? 1 : 3;
     r = Object.assign(rankNew(season), { tier: nt, lvl: nl, best: { tier: nt, lvl: nl } });
+    r.cr = null;
   }
   return r;
 }
@@ -44,6 +45,7 @@ function apply(r, win, opp){
   } else note = 'Nessun pendente perso (inizio del rango)';
   if (rankBetter(r, r.best)) r.best = { tier: r.tier, lvl: r.lvl };
   r.rating = Math.round(r.rating); r.value = rankValue(r);
+  r.cr = r.tier === CREMISI ? r.season + ':' + String(r.rating).padStart(5, '0') : null;
   return { rec: r, before, after: { tier: r.tier, lvl: r.lvl, pend: r.pend, rating: r.rating }, note, win };
 }
 

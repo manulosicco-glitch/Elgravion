@@ -1744,12 +1744,13 @@ async function hostOnline(codeArg,opt){
     if(m.isMe||!G) return; const d=m.data||{}; if(net.seen.has(d.nonce)){ return; }
     net.seen.add(d.nonce); const err=E.act(G,1,d.a);
     if(err){ r.emit('rej',{nonce:d.nonce,err}); return; }
-    net.log.push({pi:1,a:d.a,nonce:d.nonce}); r.emit('act',{i:net.log.length-1,pi:1,a:d.a,nonce:d.nonce}); render();
+    net.log.push({pi:1,a:d.a,nonce:d.nonce}); r.emit('act',{i:net.log.length-1,pi:1,a:d.a,nonce:d.nonce}); net.lastEmit=Date.now(); render();
   }));
   net.unsub.push(r.on('need',m=>{ if(m.isMe) return; const from=(m.data&&m.data.from)|0; for(let i=from;i<Math.min(net.log.length,from+12);i++) r.emit('act',{i,...net.log[i]}); if(start) r.emit('start',start); }));
-  net.timers.push(setInterval(()=>{ if(G) r.emit('sync',{n:net.log.length}); },3000));
+  // controllo di allineamento raro: i buchi si recuperano subito da chi li nota (meno traffico)
+  net.timers.push(setInterval(()=>{ if(G&&!G.over&&Date.now()-(net.lastEmit||0)>12000) r.emit('sync',{n:net.log.length}); },15000));
   if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Collegamento non riuscito: riprovo la ricerca'); findMatch(opt.mode,opt.t0); } },25000));
-  net.local=a=>{ const err=E.act(G,0,a); if(err){ toast(err); render(); return; } net.log.push({pi:0,a}); r.emit('act',{i:net.log.length-1,pi:0,a}); render(); };
+  net.local=a=>{ const err=E.act(G,0,a); if(err){ toast(err); render(); return; } net.log.push({pi:0,a}); r.emit('act',{i:net.log.length-1,pi:0,a}); net.lastEmit=Date.now(); render(); };
   net.leave=()=>{ net.unsub.forEach(f=>{try{f()}catch(e){}}); net.timers.forEach(clearInterval); try{r.leave()}catch(e){} };
 }
 async function joinOnline(code,opt){
@@ -1776,14 +1777,18 @@ async function joinOnline(code,opt){
       if(!ok){ net.leave(); NET=null; menu(); return toast('Partita classificata non valida: annullata.'); } }
     G=E.newGame({seed:m.data.seed,classes:m.data.classes,names:['Avversario','Tu'],priv:[null,net.priv],online:true,decks:[null,deckFor(chosenCls)]});
     G.ranked=!!(net.ranked&&m.data.ranked); G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; netWatch(net); render(); applyBuf(); }));
-  net.unsub.push(r.on('act',m=>{ const d=m.data; if(!d||d.i<net.applied) return; net.buf[d.i]=d; if(G) applyBuf(); }));
+  net.unsub.push(r.on('act',m=>{ const d=m.data; net.lastRx=Date.now(); if(!d||d.i<net.applied) return; net.buf[d.i]=d; if(G) applyBuf();
+    // manca una mossa prima di questa: la chiedo subito invece di aspettare il controllo periodico
+    if(G&&!net.buf[net.applied]&&Object.keys(net.buf).length&&Date.now()-(net.askT||0)>2000){ net.askT=Date.now(); r.emit('need',{from:net.applied}); } }));
   net.unsub.push(r.on('rej',m=>{ if(net.waiting&&m.data&&m.data.nonce===net.waiting.nonce){ toast(m.data.err); net.waiting=null; render(); } }));
   net.unsub.push(r.on('sync',m=>{ if(m.data&&m.data.n>net.applied) r.emit('need',{from:net.applied}); }));
   const hello=()=>{ if(!G) r.emit('hello',{cls:chosenCls,ranked:net.ranked,rank:net.ranked?rankInfo():null,cosm:myCosm(),gn:net.gn||null}); };
   hello(); net.timers.push(setInterval(hello,2000));
-  net.timers.push(setInterval(()=>{ if(net.waiting){ r.emit('req',net.waiting); } },1800));
+  // se tocca all'avversario e da un po' non arriva nulla, chiedo le mosse che potrei aver perso (raro, un messaggio piccolo)
+  net.timers.push(setInterval(()=>{ if(G&&!G.over&&!net.waiting&&(G.cur!==me||G.pending.some(x=>x.p!==me))&&Date.now()-Math.max(net.lastRx||0,net.askT||0)>8000){ net.askT=Date.now(); r.emit('need',{from:net.applied}); } },2000));
+  net.timers.push(setInterval(()=>{ if(net.waiting&&Date.now()-(net.waiting.t||0)>3000){ net.waiting.t=Date.now(); r.emit('req',{nonce:net.waiting.nonce,a:net.waiting.a}); } },1000));
   if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Collegamento non riuscito: riprovo la ricerca'); findMatch(opt.mode,opt.t0); } },25000));
-  net.local=a=>{ if(net.waiting) return toast('Attendi…'); net.waiting={nonce:Math.random().toString(36).slice(2),a}; r.emit('req',net.waiting); };
+  net.local=a=>{ if(net.waiting) return toast('Attendi…'); net.waiting={nonce:Math.random().toString(36).slice(2),a,t:Date.now()}; r.emit('req',{nonce:net.waiting.nonce,a}); };
   net.leave=()=>{ net.unsub.forEach(f=>{try{f()}catch(e){}}); net.timers.forEach(clearInterval); try{r.leave()}catch(e){} };
 }
 
@@ -1983,14 +1988,20 @@ async function rankPush(){
     await db.doc('ranks/'+id).set({season:r.season,tier:r.tier,lvl:r.lvl,pend:r.pend,rating:Math.round(r.rating),value:rankValue(r),wins:r.wins,losses:r.losses,updated:Date.now()}); } }catch(e){}
   RANK_PUSHING=false; if(RANK_PUSH_AGAIN){ RANK_PUSH_AGAIN=false; rankPush(); }
 }
+let LB_CACHE=null;
 async function lbLoad(){
   const box=()=>$('#rkLb'); const fail=t=>{ const b=box(); if(b) b.innerHTML=`<div class="note">${t}</div>`; };
   const db=await getDb(); if(!db) return fail((window.claude?'La classifica condivisa non è disponibile in questa vista: apri il gioco dal suo link su claude.ai con un account che può giocare online.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
   const u=await getUser(); const myId=u&&await u.id();
   const to=setTimeout(()=>fail('La classifica non risponde: riprova più tardi.'),10000);
   try{
-    const s=await db.collection('ranks').where('season','==',rankLoad().season).where('tier','==',CREMISI).orderBy('rating','desc').limit(200).get();
-    clearTimeout(to); const rows=s.docs.map(d=>Object.assign({id:d.id},d.data()));
+    // la classifica si scarica al massimo ogni 3 minuti; con il server attivo si leggono solo i primi 200 della Cremisi
+    const season=rankLoad().season; let rows;
+    if(LB_CACHE&&LB_CACHE.season===season&&Date.now()-LB_CACHE.t<180000) rows=LB_CACHE.rows;
+    else { if(SRV()&&window.ELG_NET.rk.leaderboard) rows=await window.ELG_NET.rk.leaderboard(season);
+      else { const s=await db.collection('ranks').where('season','==',season).where('tier','==',CREMISI).orderBy('rating','desc').limit(200).get(); rows=s.docs.map(d=>Object.assign({id:d.id},d.data())); }
+      LB_CACHE={season,t:Date.now(),rows}; }
+    clearTimeout(to);
     const me_=rows.findIndex(x=>x.id===myId); if(me_>=0){ RANK.place=me_+1; try{ localStorage.setItem(RKEY,JSON.stringify(RANK)); }catch(e){} }
     if(!rows.length) return fail('Nessun cacciatore ha ancora raggiunto la Taglia Cremisi in questa stagione.');
     let names={}; try{ names=u&&u.profiles? await u.profiles(rows.map(x=>x.id)) : {}; }catch(e){}

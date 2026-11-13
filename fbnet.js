@@ -60,8 +60,10 @@
       await me.onDisconnect().remove();
       await me.set({ uid: u.uid, kind: 'viewer', t: firebase.database.ServerValue.TIMESTAMP });
       let peers = {}; const peerCbs = new Set(); const handlers = {};
-      const onPeers = s => { peers = s.val() || {}; peerCbs.forEach(f => { try { f(); } catch (e) {} }); };
-      peersRef.on('value', onPeers);
+      // si scarica solo la presenza che cambia, non tutta la lista ogni volta (meno traffico con tanti giocatori)
+      const fire = () => peerCbs.forEach(f => { try { f(); } catch (e) {} });
+      const onAdd = s => { peers[s.key] = s.val(); fire(); }, onDel = s => { delete peers[s.key]; fire(); };
+      peersRef.on('child_added', onAdd); peersRef.on('child_changed', onAdd); peersRef.on('child_removed', onDel);
       const q = msgs.orderByChild('t').startAt(now() - 30000);
       const onMsg = s => { const m = s.val(); if (!m || !m.topic) return; (handlers[m.topic] || []).slice().forEach(f => { try { f({ isMe: m.from === myKey, data: m.data == null ? null : m.data }); } catch (e) {} }); };
       q.on('child_added', onMsg);
@@ -74,7 +76,7 @@
         onPeers(cb){ peerCbs.add(cb); return () => peerCbs.delete(cb); },
         leave(){
           if (left) return; left = true;
-          q.off('child_added', onMsg); peersRef.off('value', onPeers);
+          q.off('child_added', onMsg); peersRef.off('child_added', onAdd); peersRef.off('child_changed', onAdd); peersRef.off('child_removed', onDel);
           me.remove().then(() => peersRef.once('value')).then(s => { if (!s.exists()) base.remove().catch(() => {}); }).catch(() => {});
         }
       };
@@ -146,6 +148,8 @@
     async players(room){ await init(); const s = await firebase.database().ref('ranked/' + room + '/players').once('value'); return s.val() || {}; },
     async end(room, priv){ const u = await needUser(); await firebase.database().ref('ranked/' + room + '/end/' + u.uid).set({ priv: priv >>> 0, t: firebase.database.ServerValue.TIMESTAMP }); return u.uid; },
     onResult(room, cb){ const ref = firebase.database().ref('ranked/' + room + '/result'); const f = s => { if (s.exists()) cb(s.val()); }; ref.on('value', f); return () => ref.off('value', f); },
+    async leaderboard(season){ await init(); const s = await firebase.database().ref('ranks').orderByChild('cr').startAt(season + ':').endAt(season + ':~').limitToLast(200).once('value');
+      const rows = []; s.forEach(c => { rows.push(Object.assign({ id: c.key }, c.val() || {})); }); return rows.sort((a, b) => (b.rating || 0) - (a.rating || 0)); },
     async myRank(){ const u = await currentUser(); if (!u) return null; const s = await firebase.database().ref('ranks/' + u.uid).once('value'); return { uid: u.uid, r: s.val() }; }
   };
 
