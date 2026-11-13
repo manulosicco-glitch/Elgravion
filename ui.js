@@ -332,6 +332,16 @@ document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.
   $('#acOk').onclick=closeModal; $('#acOut').onclick=async()=>{ try{ await window.ELG_NET.signOut(); }catch(err){} ACCT=null; closeModal(); menu(); };
 });
 if(window.ELG_NET) setTimeout(acctRefresh,800);
+// ======================= LINGUA e NEGOZIO
+function langBtn(){ const en=window.LANG==='en'; return `<span class="instw"><button class="btn sm" id="bLang" title="${en?'Lingua: inglese':'Lingua: italiano'}">${en?'EN':'IT'}</button><span>Lingua</span></span>`; }
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bLang'); if(!b) return; e.preventDefault();
+  const en=window.LANG==='en';
+  modal(`<h3>${en?'Language':'Lingua'}</h3><div class="row langrow"><button class="btn ${!en?'on':''}" id="lgIt">🇮🇹 Italiano</button><button class="btn ${en?'on':''}" id="lgEn">🇬🇧 English</button></div>`);
+  $('#lgIt').onclick=()=>window.setLang('it'); $('#lgEn').onclick=()=>window.setLang('en'); });
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bShop'); if(!b) return; e.preventDefault();
+  const items=[['🂠','Dorsi delle carte','Retri esclusivi per le tue carte in partita.'],['🖼','Cornici dell\'eroe','Bordi speciali per il ritratto del tuo eroe.'],['💍','Anelli del potere eroe','Versioni preziose dell\'anello della tua classe.'],['✦','Pacchetto sostenitore','Un insieme di oggetti estetici per chi sostiene il gioco.']];
+  modal(`<h3>Negozio</h3><div class="note" style="margin:0 auto 12px">Il negozio apre presto. Conterrà solo oggetti estetici: nessuna carta, nessun vantaggio in partita.</div><div class="shoplist">${items.map(([i,n,d])=>`<div class="shopit"><span class="si">${i}</span><div><b>${n}</b><small>${d}</small></div><span class="soon">Presto</span></div>`).join('')}</div><div class="row"><button class="btn" id="shOk">Chiudi</button></div>`);
+  $('#shOk').onclick=closeModal; });
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
 function bindSet(){ const b=$('#bSet'); if(b) b.onclick=()=>settingsBox(); }
 function settingsBox(){
@@ -363,8 +373,8 @@ function settingsBox(){
 }
 // Parole chiave presenti nei testi delle carte (per il filtro della Collezione)
 let KW_ALL=null;
-function allKws(){ if(KW_ALL) return KW_ALL; const set=new Set(); for(const c of Object.values(CARDS)) for(const k of kwsIn(kwHtml(c.x||''))) set.add(k); return KW_ALL=[...set].sort((a,b)=>a.localeCompare(b,'it')); }
-function cardHasKw(c,k){ return k==='tutte' || kwsIn(kwHtml(c.x||'')).includes(k); }
+function allKws(){ if(KW_ALL) return KW_ALL; const set=new Set(); for(const c of Object.values(CARDS)) for(const k of kwsIn(kwHtml(tx(c)||''))) set.add(k); return KW_ALL=[...set].sort((a,b)=>a.localeCompare(b,'it')); }
+function cardHasKw(c,k){ return k==='tutte' || kwsIn(kwHtml(tx(c)||'')).includes(k); }
 // ======================= ANNULLA (Esc o tasto destro del mouse)
 let DRAG_ABORT=null; // impostato dai trascinamenti in corso (attacco / potere)
 function cancelAction(){
@@ -403,7 +413,7 @@ function menu(msg){
   G=null; NET&&NET.leave&&NET.leave(); NET=null; sel=null;
   app.innerHTML=`<div class="menu">
     <div class="mbg"><div class="mmap"></div><div class="mfog f1"></div><div class="mfog f2"></div><div class="members">${Array.from({length:26},(_,i)=>`<i style="left:${(i*37)%100}%;animation-delay:${(i*0.73)%9}s;animation-duration:${7+(i*1.3)%6}s"></i>`).join('')}</div></div>
-    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span>${acctBtn()}</div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}</div>
+    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span>${acctBtn()}</div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}${langBtn()}</div><button class="shopbtn" id="bShop" title="Negozio"><span class="si">🛒</span><span>Negozio</span></button>
     <header class="mhead"><div class="mtitle2"><span class="orn l">${TORN}</span><h1 aria-label="Elgravion"><span class="tw">ELGRAVI</span><img class="tcoin" src="art/gra_oro.svg" alt=""><span class="tw">N</span></h1><span class="orn r">${TORN}</span></div><div class="tband">${TBAND}</div><div class="sub">Gioco di carte · Primo Set</div></header>
     <div class="mgrid">
     <nav class="mcol left"><div class="mcolh">Grimorio</div>
@@ -1160,7 +1170,7 @@ function unitHtml(u,isMe,legalT,myTurn){
   const cls=['unit',LETHAL.has(u.uid)?'lethal':'',KILLS.has(u.uid)?'kills':'',shielded.has(u.uid)?'shd':'',kws.includes('Ordalia')&&!u.akw.__noOrdalia?'ord':'',kws.includes('Lascito')?'lasc':'',kws.includes('Volo')?'volo':'',kws.includes('Estraneo')?'estr':'',u.tempra>0?'temp':'',(u.cantAttack||u.petri)?'petr':'',u.silenced?'sil':'',live?'emp':'',c.r==='Leggendaria'?'leg':'',u.kind==='domain'?'dom':'',u.kind!=='domain'&&u.slots.length>1?'wide':'',ready?'ready':'',sel&&sel.uid===u.uid&&sel.kind==='attack'?'sel':'',legalT.has(u.uid)?'tg':''].join(' ');
   const sp=spawnInfo(u,c);
   return `<div class="${cls} ${sp.cls}" style="--uc:${CLS_COLOR[c.cl]};--emo:${EMO_COLOR[G.players[u.owner].cls]};${sp.style}" data-u="${u.uid}">${sp.fx}${stoneHtml(u)}
-    ${c.art?`<img src="${c.art}" alt="">`:''}${rarGem(c)}<div class="nm">${esc(u.n)}</div>
+    ${c.art?`<img src="${c.art}" alt="">`:''}${rarGem(c)}<div class="nm">${esc(tn(u.n))}</div>
     <div class="st">${status.map(s=>`<span>${s}</span>`).join('')}</div>
     <div class="kwi">${kws.map(k=>`<span class="k-${k.replace(/ /g,'')}" data-kw="${esc(k)}">${KW_ICON[k]||'•'}</span>`).join('')}</div>${kws.includes('Ordalia')&&!u.akw.__noOrdalia?'<div class="ordshield"></div>':''}
     ${LETHAL.has(u.uid)||(sel&&sel.kind==='attack'&&sel.uid===u.uid)?'<div class="skull">☠</div>':''}${u.scaglia?`<div class="sc" title="Scaglia">${u.scaglia}</div>`:''}${u.kind==='minion'?`<div class="a">${st.a}</div>`:''}<div class="d ${u.dmg?'hurt':''}">${hp}</div></div>`;
@@ -1168,7 +1178,7 @@ function unitHtml(u,isMe,legalT,myTurn){
 function miniCard(c,cost,attrs,extra,down){
   const art=c.art?`<img class="ar" src="${c.art}" alt="">`:`<div class="ph">${c.star?'✦':c.nuova&&c.cl!=='neutrali'?`<img class="phs" src="art/simboli/${c.cl}.svg" alt="">`:'◆'}</div>`;
   return `<div class="mc t-${c.t} ${c.r==='Leggendaria'?'leg':''} ${extra||''}" style="--uc:${CLS_COLOR[c.cl]}" ${attrs||''}>${art}${rose(c)}<div class="cost ${down?'dn':''}">${cost}</div>
-    <div class="nm">${esc(c.n)}</div><div class="tx fit">${kwHtml(c.x)}</div>
+    <div class="nm">${esc(tn(c.n))}</div><div class="tx fit">${kwHtml(tx(c))}</div>
     <div class="mbot">${c.t==='Seguace'?`<div class="a">${c.a}</div>`:'<span></span>'}${rarGem(c)||'<span></span>'}${c.t==='Seguace'||c.t==='Dominio'?`<div class="d">${c.d}</div>`:'<span></span>'}</div></div>`;
 }
 function typePlate(c){ return `<div class="tplate r-${({Comune:'c',Rara:'r',Epica:'e',Leggendaria:'l',Gettone:'g'})[c.r]||'g'}"><span>${esc(c.t)}</span>${c.tr?`<i>◆</i><span>${esc(c.tr)}</span>`:''}<i>◆</i><span>${esc(c.r)}</span></div>`; }
@@ -1178,15 +1188,15 @@ function colCard(c,attrs,extra){
   const def=(c.t==='Seguace'||c.t==='Dominio')?`<div class="d">${c.d}</div>`:'';
   return `<div class="cc t-${c.t} ${c.r==='Leggendaria'?'leg':''} ${extra||''}" style="--uc:${CLS_COLOR[c.cl]}" ${attrs||''}>
     <div class="cart">${art}<div class="cost">${c.c}</div>${rose(c)}</div>
-    <div class="cnm">${esc(c.n)}</div>${typePlate(c)}
-    <div class="ctx fit">${kwHtml(c.x)}</div>
+    <div class="cnm">${esc(tn(c.n))}</div>${typePlate(c)}
+    <div class="ctx fit">${kwHtml(tx(c))}</div>
     <div class="cbot">${stats||'<span></span>'}${rarGem(c,false)||'<span></span>'}${def||'<span></span>'}</div></div>`;
 }
 function bigCard(c,u){
   const st=u?E.stat(u):null;
   return `<div class="big t-${c.t}" style="--uc:${CLS_COLOR[c.cl]};position:relative">${rose(c)}${c.art?`<img src="${c.art}" alt="">`:''}<div class="cost">${c.c}</div>
    <div class="h">${esc(c.n)}</div>${typePlate(c)}
-   <div class="x fit">${kwHtml(c.x)}</div>
+   <div class="x fit">${kwHtml(tx(c))}</div>
    ${c.t==='Seguace'?`<div class="sa"><span>${st?st.a:c.a}</span><span>${st?st.d-u.dmg:c.d}</span></div>`:c.t==='Dominio'?`<div class="sa"><span style="visibility:hidden"></span><span>${st?st.d-u.dmg:c.d}</span></div>`:''}</div>`;
 }
 
@@ -1873,4 +1883,5 @@ function findMatchChooser(){
   $('#mmX').onclick=closeModal; $('#mmFr').onclick=()=>findMatch('amichevole'); $('#mmRk').onclick=()=>{ if(!window.claude&&window.ELG_NET&&!window.ELG_NET.ranked){ toast('La Classificata arriva a breve, con l\'arbitro sul server che la protegge dai trucchi. Intanto puoi giocare in Amichevole.'); return; } findMatch('classificata'); };
 }
 
+if(window.I18N_AFTER) I18N_AFTER();
 menu();

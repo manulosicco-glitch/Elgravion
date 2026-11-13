@@ -949,6 +949,16 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 @media (max-width:620px){ .mside span.instw{display:contents!important} .mside span.instw>span{display:none} }
 
 .btn.resa{border-color:#b3263a;color:#ffd0d4} .btn.resa:hover{background:#3a141a}
+
+/* Negozio (in basso a sinistra) e Lingua */
+.shopbtn{position:fixed;left:18px;bottom:18px;z-index:30;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:24px;border:1.5px solid var(--gold);background:linear-gradient(#3a2c18,#1d150c);color:var(--gold2);font-family:Cinzel,serif;font-weight:700;font-size:14px;letter-spacing:.06em;cursor:pointer;box-shadow:0 4px 14px #000a,0 0 12px #c9a24b44}
+.shopbtn .si{font-size:20px} .shopbtn:hover{filter:brightness(1.15)}
+.shoplist{display:flex;flex-direction:column;gap:8px;margin:0 auto 12px;max-width:440px}
+.shopit{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #c9a24b55;border-radius:10px;background:#1a1420}
+.shopit .si{font-size:24px;width:32px;text-align:center} .shopit div{flex:1;display:flex;flex-direction:column;text-align:left} .shopit small{color:var(--mut)}
+.shopit .soon{font-family:Cinzel;font-size:11px;color:#1a1420;background:var(--gold);border-radius:8px;padding:2px 8px}
+.langrow .btn.on{box-shadow:0 0 0 2px var(--gold2),0 0 12px #c9a24b88}
+@media (max-width:620px){ .shopbtn{left:10px;bottom:10px;padding:6px 10px} .shopbtn span:not(.si){display:none} }
 </style>
 </head>
 <body>
@@ -957,6 +967,8 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 <script src="fbnet.js"></script>
 <script src="data.js"></script>
 <script src="engine.js"></script>
+<script src="i18n_en.js"></script>
+<script src="i18n.js"></script>
 <script src="ui.js"></script>
 <script>
 if('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.claude){
