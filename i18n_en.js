@@ -240,6 +240,7 @@ words: {
 },
 // ---------- Interface: exact texts
 ui: {
+"⏳ Il server sta verificando il premio…":"⏳ The server is verifying your reward…","Premio non verificato.":"Reward not verified.","Partita non valida: nessun premio.":"Invalid match: no reward.","Server non raggiungibile: riprova tra poco.":"Server unreachable: try again shortly.","Operazione non riuscita.":"Operation failed.","Hai già scelto la classe iniziale.":"You have already chosen your starting class.","GRA insufficienti.":"Not enough GRA.","Non hai pacchetti da aprire.":"You have no packs to open.","Premio già ricevuto.":"Reward already received.",
 "⏳ Il server sta verificando la partita…":"⏳ The server is verifying the match…","Partita non valida per la Classificata: rango invariato.":"Match not valid for Ranked: rank unchanged.","Partita classificata non valida: annullata.":"Invalid ranked match: cancelled.","Classificata: registrazione sul server non riuscita. Riprova.":"Ranked: server registration failed. Try again.",
 "Ruota il telefono in orizzontale":"Rotate your phone to landscape","Elgravion si gioca col telefono in orizzontale":"Elgravion is played with your phone in landscape",
 "Gioco di carte · Primo Set":"Card game · First Set","Scegli il tuo eroe":"Choose your hero","Grimorio":"Grimoire","Battaglia":"Battle",
@@ -322,6 +323,7 @@ ui: {
 },
 // ---------- Interface: patterns (regex source -> replacement)
 pat: [
+["^Premio giornaliero esaurito: domani altre partite premiate · hai (\\d+)$","Daily rewards used up: more rewarded matches tomorrow · you have $1"],["^Partita non verificata: (.+)\\.$","Match not verified: $1."],["^Account: sincronizzazione non riuscita \\((.+)\\)$","Account: sync failed ($1)"],
 ["^Mazzo (\\d+)$","Deck $1"],["^Mano (\\d+)$","Hand $1"],["^Mazzo «(.+)»$","Deck «$1»"],["^Nebbia (\\d+)$","Mist $1"],
 ["^Tuo turno (\\d+:\\d+)$","Your turn $1"],["^Avversario (\\d+:\\d+)$","Opponent $1"],["^Mano (\\d+:\\d+)$","Hand $1"],
 ["^GRA: (\\d+) disponibili su (\\d+)$","GRA: $1 available of $2"],

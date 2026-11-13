@@ -121,11 +121,26 @@
   };
 
   // ---------- Classificata con arbitro sul server ----------
-  let rankedFlag = !!window.ELG_RANKED_SERVER;
+  let rankedFlag = !!window.ELG_RANKED_SERVER, econFlag = false;
   async function checkRanked(){
-    try { await init(); const s = await firebase.database().ref('config/rankedServer').once('value'); rankedFlag = rankedFlag || s.val() === true; } catch (e) {}
+    try { await init(); const s = await firebase.database().ref('config').once('value'); const c = s.val() || {};
+      rankedFlag = rankedFlag || c.rankedServer === true; econFlag = c.economyServer === true; } catch (e) {}
     return rankedFlag;
   }
+  // ---------- economia sul server (collezione, GRA, pacchetti) ----------
+  let fnApi = null;
+  async function functionsApi(){
+    await init(); if (!firebase.functions) await load(BASE + 'firebase-functions-compat.js');
+    return fnApi || (fnApi = firebase.app().functions('europe-west1'));
+  }
+  async function econ(op, data){
+    await needUser(); const f = (await functionsApi()).httpsCallable('economia', { timeout: 70000 });
+    const r = await f(Object.assign({ op }, clean(data) || {})); return r.data;
+  }
+  const decks = {
+    async get(){ const u = await currentUser(); if (!u) return null; const s = await firebase.database().ref('decks/' + u.uid).once('value'); return s.val(); },
+    async set(d){ const u = await currentUser(); if (!u) return; await firebase.database().ref('decks/' + u.uid).set(clean(d)); }
+  };
   const rk = {
     async register(room, data){ const u = await needUser(); await firebase.database().ref('ranked/' + room + '/players/' + u.uid).set(clean(data)); return u.uid; },
     async players(room){ await init(); const s = await firebase.database().ref('ranked/' + room + '/players').once('value'); return s.val() || {}; },
@@ -137,7 +152,7 @@
   window.ELG_NET = {
     online: true,
     // la Classificata fuori da claude.ai si accende solo quando l'arbitro sul server è pronto
-    get ranked(){ return rankedFlag; }, checkRanked, rk,
+    get ranked(){ return rankedFlag; }, get econOn(){ return econFlag; }, checkRanked, rk, econ, decks,
     async use(kind){ await init(); return kind === 'room' ? roomApi : kind === 'db' ? dbApi : kind === 'user' ? userApi : null; },
     signIn, currentUser,
     async signOut(){ await init(); await firebase.auth().signOut(); }

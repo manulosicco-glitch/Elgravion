@@ -3,7 +3,7 @@
     "rooms": {
       "$room": {
         ".read": "auth != null",
-        ".write": "auth != null && !newData.exists() && !$room.beginsWith('elg-rk')",
+        ".write": "auth != null && !newData.exists() && !$room.beginsWith('elg-rk') && !$room.beginsWith('elg-am')",
         "peers": {
           "$peer": {
             ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)"
@@ -50,7 +50,7 @@
         ".read": "auth != null",
         "players": {
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && !data.exists() && $room.beginsWith('elg-rk')",
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && ($room.beginsWith('elg-rk') || $room.beginsWith('elg-am'))",
             ".validate": "newData.hasChild('cls') && newData.child('cls').isString() && (newData.hasChild('hc') || newData.hasChild('gn'))"
           }
         },
@@ -63,6 +63,23 @@
         "result": {
           ".write": false
         }
+      }
+    },
+    "profiles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "claims": {
+      ".read": false,
+      ".write": false
+    },
+    "decks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren()"
       }
     }
   }

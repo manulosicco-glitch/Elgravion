@@ -22,4 +22,4 @@ jobs:
           mkdir -p functions/game && cp ../engine.js ../data.js functions/game/
           (cd functions && npm ci --no-audit --no-fund)
           npx -y firebase-tools@latest deploy --project "${{ vars.FIREBASE_PROJECT_ID }}" --only database,functions --non-interactive --force
-          npx -y firebase-tools@latest database:set /config/rankedServer --data true --project "${{ vars.FIREBASE_PROJECT_ID }}" --instance elgravion-default-rtdb --force
+          npx -y firebase-tools@latest database:update /config --data '{"rankedServer":true,"economyServer":true}' --project "${{ vars.FIREBASE_PROJECT_ID }}" --instance elgravion-default-rtdb --force

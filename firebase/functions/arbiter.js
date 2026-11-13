@@ -17,7 +17,7 @@ const asDeck = d => { const l = asList(d); return l ? l.map(r => asList(r)) : nu
 // room: nome della stanza; players: {uid:{cls,deck,hc|gn}}; msgs: [{topic,data,uid,t}]
 // ends: {uid:{priv}}; present: Set di uid ancora collegati alla stanza
 // Restituisce {status:'done', winner:uid, loser:uid, reason} | {status:'wait', why} | {status:'void', why}
-function arbitrate(E, { room, players, msgs, ends, present }){
+function arbitrate(E, { room, players, msgs, ends, present, deckOk }){
   players = players || {}; ends = ends || {}; msgs = (msgs || []).slice().sort((a, b) => (a.t || 0) - (b.t || 0));
   present = present || new Set();
   const start = msgs.find(m => m.topic === 'start' && m.data && players[m.uid]);
@@ -37,6 +37,7 @@ function arbitrate(E, { room, players, msgs, ends, present }){
   // 2) mazzi: devono rispettare le regole del gioco
   const decks = [asDeck(P[host].deck), asDeck(P[guest].deck)];
   for (const s of [0, 1]) if (decks[s] && !E.deckCheck(classes[s], decks[s]).ok) return win(1 - s, 'mazzo non valido');
+  if (deckOk) for (const s of [0, 1]) if (!deckOk(uidOf[s])) return win(1 - s, 'carte non possedute');
 
   // 3) registro delle mosse: lo tiene chi ospita, ma le mosse dell'ospite devono comparire anche firmate da lui
   const log = new Map(), reqs = new Map();
@@ -61,6 +62,12 @@ function arbitrate(E, { room, players, msgs, ends, present }){
       if (a.type === 'end' && a.pay != null) { const exp = E.enrich(G, pi, { type: 'end' }).pay; if ((a.pay | 0) !== exp) return win(1 - pi, 'Pegno dichiarato falso'); }
       const pd = G.pending[0];
       if (a.type === 'choose' && pd && pd.type === 'pegnoCheck' && pd.p === pi && !!a.choice !== !!E.pegnoReady(G, pi)) return win(1 - pi, 'Pegno dichiarato falso');
+      if (a.type === 'choose' && pd && pd.p === pi && (pd.type === 'tutor' || (pd.type === 'scava' && pd.then === 'profondo'))) {
+        const ex = E.enrich(G, pi, { type: 'choose', choice: pd.type === 'tutor' ? null : a.choice });
+        if (pd.type === 'tutor' && !same(ex.choice, a.choice)) return win(1 - pi, 'ricerca nel mazzo falsa');
+        if (pd.type === 'scava' && (a.stars | 0) !== (ex.stars | 0)) return win(1 - pi, 'Stelle dichiarate false');
+      }
+      if (a.type === 'mulligan') { const P = G.players[pi]; const ok = (a.uids || []).every(u => { const h = P.hand.find(x => x.uid === u); return !h || (h.n && ['Epica', 'Leggendaria'].includes(E.card(h.n).r)); }); if (!ok) return win(1 - pi, 'mulligan non valido'); }
     }
     let err; try { err = E.act(G, pi, a); } catch (e) { err = 'errore'; }
     if (err) return win(1 - pi, 'mossa non valida');

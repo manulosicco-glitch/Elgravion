@@ -326,12 +326,15 @@ function resolvePending(g,pi,choice){
       log(g,`${p.name} Scava e aggiunge ${k} Stell${k>1?'e':'a'}.`);
     }
     if(pd.then==='profondo'){
-      const stars=p.hand.filter(h=>h.n&&card(h.n).star).length; const o=opp(g,p);
+      const stars=p.known?p.hand.filter(h=>h.n&&card(h.n).star).length:Math.max(0,Math.min(p.hand.length,(g.__stars|0))); const o=opp(g,p);
       for(let j=0;j<stars;j++){ const ms=minionsOf(g,o).filter(u=>g.units[u.uid]&&hpLeft(u)>0&&!hasKw(u,'Estraneo')&&!u.inCaccia); const mx=Math.max(...ms.map(hpLeft)); const tg=ms.length?pick(g,ms.filter(u=>hpLeft(u)===mx)):'hero'; if(tg==='hero') heroDamage(g,o,1); else damage(g,tg,1); }
       checkDeaths(g);
     }
   } else if(pd.type==='analizza'){
     const i=(choice===0||choice===1)?choice:0; addHand(g,p,pd.cards[i]);
+  } else if(pd.type==='tutor'){
+    const idx = p.known ? tutorIdx(p,pd.f,pd.k) : (Array.isArray(choice)?choice.slice(0,pd.k).map(x=>x|0):[]);
+    tutorApply(g,p,pd.f,idx);
   } else if(pd.type==='scruta'){
     // choice: indice della carta da mettere in fondo (-1 = lasciale)
     if(choice===0||choice===1){ const n=pd.cards[choice]; const keep=pd.cards[1-choice]; p.deck.unshift(keep); p.deck.push(n); }
@@ -362,6 +365,12 @@ function resolvePending(g,pi,choice){
   if(g.ending && !g.pending.length && !g.over) finishEnd(g,g.cur);
   return true;
 }
+// Cerca nel proprio mazzo: online solo il proprietario conosce il mazzo, quindi sceglie lui (in automatico) quali carte prende.
+const TUTOR={rituale:n=>card(n)&&card(n).t==='Rituale', codalunga:n=>card(n)&&card(n).tr==='Codalunga'};
+function tutorIdx(p,f,k){ const out=[], d=p.deck.slice(); for(let j=0;j<k;j++){ const i=d.findIndex(TUTOR[f]); if(i<0) break; out.push(i); d.splice(i,1); } return out; }
+function tutorApply(g,p,f,idx){ let got=0; for(const i of idx){ if(!(i>=0&&i<p.deck.length)) break; const n=p.deck.splice(i,1)[0]; addHand(g,p,n); got++; }
+  if(got&&f==='rituale') log(g,'Il Cappellano lascia un Rituale.'); }
+function tutor(g,p,f,k){ if(g.online) g.pending.push({type:'tutor',p:p.i,f,k}); else tutorApply(g,p,f,tutorIdx(p,f,k)); }
 function decretoPossible(g,p){ const o=opp(g,p); return p.slots.some(x=>!x.emo) || o.slots.some(x=>!x.emo&&!x.revoked); }
 function analizza(g,p){
   if(!p.known){ g.pending.push({type:'analizza',p:p.i,cards:[null,null]}); return; }
@@ -576,8 +585,8 @@ function deathFx(g,u,p){
   const o=opp(g,p);
   switch(u.n){
     case 'Apprendista di Sveltopasso': scava(g,p,1); break;
-    case 'Cappellano Noxari': { const i=p.deck.findIndex(n=>card(n)&&card(n).t==='Rituale'); if(i>=0){ const n=p.deck.splice(i,1)[0]; addHand(g,p,n); log(g,'Il Cappellano lascia un Rituale.'); } break; }
-    case 'Miraggio di Grano': { for(let k=0;k<2;k++){ const i=p.deck.findIndex(n=>card(n)&&card(n).tr==='Codalunga'); if(i<0) break; const n=p.deck.splice(i,1)[0]; addHand(g,p,n); } break; }
+    case 'Cappellano Noxari': tutor(g,p,'rituale',1); break;
+    case 'Miraggio di Grano': tutor(g,p,'codalunga',2); break;
     case 'Spaccapietre': addHand(g,p,'Stella di Piombo'); addHand(g,p,'Stella di Piombo'); break;
     case 'Cercatore di Meteore': addHand(g,p,'Pietra Meteorica'); break;
     case 'Astrologa della Caduta': for(const e of minionsOf(g,o)) if(!e.inCaccia) damage(g,e,3); break;
@@ -981,7 +990,7 @@ function act(g,pi,a){
     case 'attack': P.idle=0; r=attack(g,pi,a.uid,a.target); break;
     case 'power': P.idle=0; r=usePower(g,pi,a.target); break;
     case 'pegno': r=toPegno(g,pi,a.uid); break;
-    case 'choose': r=resolvePending(g,pi,a.choice)?null:'nessuna scelta'; break;
+    case 'choose': g.__stars=a.stars|0; r=resolvePending(g,pi,a.choice)?null:'nessuna scelta'; delete g.__stars; break;
     case 'end': {
       // chi lascia scadere il tempo senza giocare per più di IDLE_MAX turni di fila perde (solo online)
       if(a.idle){ P.idle=(P.idle||0)+1; } else P.idle=0;
@@ -998,6 +1007,7 @@ function act(g,pi,a){
 function enrich(g,pi,a){
   a=Object.assign({},a); const p=g.players[pi];
   if(a.type==='play'){ const h=p.hand.find(x=>x.uid===a.uid); if(h&&h.n) a.n=h.n; }
+  if(a.type==='choose'){ const pd=g.pending[0]; if(pd&&pd.p===pi&&pd.type==='scava'&&pd.then==='profondo'){ const c=JSON.parse(JSON.stringify(g)); c.ev=[]; c.pending[0].then=null; resolvePending(c,pi,a.choice); a.stars=c.players[pi].hand.filter(h=>h.n&&card(h.n).star).length; } if(pd&&pd.p===pi&&pd.type==='tutor') a.choice=tutorIdx(p,pd.f,pd.k); }
   if(a.type==='end'){ let pay=0; if(p.pegno&&p.pegno.n!=null){ const o=opp(g,p); let gra=p.gra; if(unitsOf(g,o).some(d=>d.n==='Baessa')&&gra>0) gra--; pay=Math.max(0,Math.min(pegnoCost(g,p)-p.pegno.paid,gra)); } a.pay=pay; }
   return a;
 }
@@ -1007,7 +1017,7 @@ function ai(g,pi){
   // restituisce la prossima azione dell'IA, o null se ha finito
   const p=g.players[pi], o=opp(g,p);
   if(g.over) return null;
-  if(g.phase==='mulligan') return p.mulliganDone?null:{type:'mulligan',uids:p.hand.filter(h=>card(h.n).c>6).map(h=>h.uid)};
+  if(g.phase==='mulligan') return p.mulliganDone?null:{type:'mulligan',uids:p.hand.filter(h=>h.n&&card(h.n).c>6&&['Epica','Leggendaria'].includes(card(h.n).r)).map(h=>h.uid)};
   const pd=g.pending[0];
   if(pd){ if(pd.p!==pi) return null; return {type:'choose',choice:aiChoice(g,p,pd)}; }
   if(g.cur!==pi || g.ending) return null;
@@ -1103,6 +1113,7 @@ function aiChoice(g,p,pd){
   if(pd.type==='analizza') return 0;
   if(pd.type==='scruta') return card(pd.cards[0]).c>p.graMax+2?0:-1;
   if(pd.type==='pegnoCheck') return pegnoReady(g,p.i);
+  if(pd.type==='tutor') return tutorIdx(p,pd.f,pd.k);
   if(pd.type==='decreto'){ const fs=p.slots.map((x,i)=>i).filter(i=>!p.slots[i].emo); if(fs.length) return {k:'sigillo',slot:fs.find(i=>!p.slots[i].unit)??fs[0]}; const o=opp(g,p); return {k:'revoca',slot:o.slots.findIndex(x=>!x.emo&&!x.revoked)}; }
   if(pd.type==='sposta'){ const fs=freeSlots(g,p,false); const e=fs.find(i=>p.slots[i].emo); return e!=null?e:-1; }
   if(pd.type==='ritorno'){ let b=0; pd.cards.forEach((n,i)=>{ if(card(n).c>card(pd.cards[b]).c) b=i; }); return b; }
@@ -1137,7 +1148,8 @@ function aiEval(g,pi){
   if(myAtk>=hp(o)) v+=30;
   return v;
 }
-function aiClone(g){ const c=JSON.parse(JSON.stringify(g)); c.seed=(Math.random()*4e9)>>>0; c.ev=[]; return c; }
+// seme delle simulazioni dell'IA ricavato dalla partita: stessa situazione = stessa scelta (il server può ricontrollare le partite contro il computer)
+function aiClone(g){ const c=JSON.parse(JSON.stringify(g)); c.seed=((g.seed^Math.imul((g.log?g.log.length:0)+1,2654435761)^Math.imul(g.uid|0,40503)^Math.imul(g.turn|0,97))>>>0)||1; c.ev=[]; return c; }
 function aiRollout(c,pi){
   for(let n=0;n<60;n++){
     if(c.over) return;
@@ -1223,6 +1235,6 @@ function deckCheck(cls,list){
   const rules=[[tot===DECK_SIZE,`${tot}/${DECK_SIZE} carte`],[leg>=1,'Almeno 1 leggendaria'],[com>=4,'Almeno 4 comuni'],[inc>=1,'Almeno 1 Incanto'],[rit>=1,'Almeno 1 Rituale']];
   return {ok:!errs.length&&rules.every(r=>r[0]),tot,rules,errs};
 }
-const API={FOCUS_MIN,focusOn,focusMin,STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
+const API={tutorIdx,FOCUS_MIN,focusOn,focusMin,STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
 if(typeof module!=='undefined') module.exports=API; else root.Engine=API;
 })(this);

@@ -333,9 +333,9 @@ let ACCT=null;
 function acctBtn(){ if(window.claude||!window.ELG_NET) return ''; return `<span class="instw"><button class="btn sm" id="bAcct" title="${ACCT?'Account: '+esc(ACCT):'Accedi con Google per giocare online'}">${ACCT?'👤':'🔑'}</button><span>${ACCT?esc(ACCT.split(' ')[0]).slice(0,12):'Accedi'}</span></span>`; }
 async function acctRefresh(){ if(!window.ELG_NET) return; try{ const u=await window.ELG_NET.currentUser(); const n=u?(u.displayName||'Cacciatore'):null; if(n!==ACCT){ ACCT=n; if($('.menu')&&!G) menu(); } }catch(e){} }
 document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.closest('#bAcct'); if(!b) return; e.preventDefault();
-  if(!ACCT){ try{ await window.ELG_NET.signIn(); await acctRefresh(); toast('Accesso effettuato'); }catch(err){ toast('Accesso non riuscito'+(err&&err.code?' ('+err.code+')':'')); } return; }
+  if(!ACCT){ try{ await window.ELG_NET.signIn(); await acctRefresh(); toast('Accesso effettuato'); accSync(); }catch(err){ toast('Accesso non riuscito'+(err&&err.code?' ('+err.code+')':'')); } return; }
   const d=modal(`<h3>Il tuo account</h3><div class="note" style="margin:0 auto 12px">Sei collegato come <b>${esc(ACCT)}</b>. Il tuo nome appare agli avversari e in classifica.</div><div class="row"><button class="btn" id="acOut">Esci</button><button class="btn" id="acOk">Chiudi</button></div>`);
-  $('#acOk').onclick=closeModal; $('#acOut').onclick=async()=>{ try{ await window.ELG_NET.signOut(); }catch(err){} ACCT=null; closeModal(); menu(); };
+  $('#acOk').onclick=closeModal; $('#acOut').onclick=async()=>{ try{ await window.ELG_NET.signOut(); }catch(err){} ACCT=null; accOff(); closeModal(); menu(); };
 });
 if(window.ELG_NET) setTimeout(acctRefresh,800);
 // ======================= LINGUA e NEGOZIO
@@ -558,7 +558,7 @@ async function findMatch(mode,t0){
 // ======================= MAZZI (uno per classe, salvati in questo browser)
 const DKEY='elgravion_mazzi_v1'; let DECKS_MEM=null;
 function loadDecks(){ if(DECKS_MEM) return DECKS_MEM; try{ DECKS_MEM=JSON.parse(localStorage.getItem(DKEY)||'{}')||{}; }catch(e){ DECKS_MEM={}; } return DECKS_MEM; }
-function saveDecks(){ try{ localStorage.setItem(DKEY,JSON.stringify(DECKS_MEM||{})); return true; }catch(e){ return false; } }
+function saveDecks(){ if(ACC()){ decksPush(); return true; } try{ localStorage.setItem(DKEY,JSON.stringify(DECKS_MEM||{})); return true; }catch(e){ return false; } }
 function deckOk(cls,d){ return !!d && E.deckCheck(cls,d).ok && !deckOwnErrs(d).length; }
 function myDeck(cls){ const d=loadDecks()[cls]; return deckOk(cls,d)?d:null; }
 function deckFor(cls){ return myDeck(cls)||null; }
@@ -659,7 +659,7 @@ function grantStarter(cls){
 }
 // premio una tantum quando possiedi tutte le carte di una classe (al numero massimo di copie)
 function classComplete(cls){ return collectible().filter(c=>c.cl===cls).every(c=>owned(c.n)>=E.MAX_COPIES[c.r]); }
-function checkClassBonus(silent){ const o=ownLoad(); o.done=o.done||{}; let got=[];
+function checkClassBonus(silent){ if(ACC()) return []; const o=ownLoad(); o.done=o.done||{}; let got=[];
   let tot=0; for(const k of [...ALL_CLS,'neutrali']) if(!o.done[k] && classComplete(k)){ o.done[k]=1; const v=k==='neutrali'?PACK.neutralBonus:PACK.classBonus; o.coins+=v; tot+=v; got.push(k); }
   if(got.length){ ownSave(); if(!silent){ sfx('leg'); toast(`Collezione completa: ${got.map(k=>k==='neutrali'?'Neutrali':HEROES[k].n).join(', ')}! +${tot} GRA`); } } return got; }
 function baseOwned(cls){ return E.DECKS[cls].every(([n,q])=>owned(n)>=q); }
@@ -673,9 +673,9 @@ function starterModal(){
   d.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{ const cls=b.dataset.st;
     const m2=modal(`<h3>Iniziare con ${esc(HEROES[cls].n)}?</h3><div class="note" style="margin:0 auto 10px">La scelta non si può cambiare.</div><div class="row"><button class="btn" id="stYes">Conferma</button><button class="btn" id="stNo">Indietro</button></div>`); m2.dataset.lock=1;
     $('#stNo').onclick=()=>starterModal();
-    $('#stYes').onclick=()=>{ const res=grantStarter(cls); chosenCls=cls; sfx('burst'); revealCards(res,{title:'I tuoi doni di benvenuto',after:()=>menu()}); }; });
+    $('#stYes').onclick=async()=>{ let res; if(ACC()){ const r=await econDo('starter',{cls}); if(!r) return; res=r.res; } else res=grantStarter(cls); chosenCls=cls; sfx('burst'); revealCards(res,{title:'I tuoi doni di benvenuto',after:()=>menu()}); }; });
 }
-function ownSave(){ try{ localStorage.setItem(OKEY,JSON.stringify(OWN)); }catch(e){} }
+function ownSave(){ if(ACC()) return; try{ localStorage.setItem(OKEY,JSON.stringify(OWN)); }catch(e){} }
 function owned(n){ return ownLoad().cards[n]||0; }
 function collectible(){ return Object.values(CARDS).filter(c=>c.r!=='Gettone'); }
 function ownedCopy(list){ return list.map(([n,k])=>[n,Math.min(k,owned(n))]).filter(([,k])=>k>0); }
@@ -700,6 +700,13 @@ function openPack(){
 function buyPack(){ const o=ownLoad(); if(o.coins<PACK.cost) return false; o.coins-=PACK.cost; o.packs++; ownSave(); return true; }
 function gameReward(){
   if(!G||G.__rew) return G&&G.__rew; if(TUT){ G.__rew={none:1}; return G.__rew; }
+  if(ACC()){ const g=G;
+    if(NET&&NET.srv) return G.__rew={pending:true};
+    if(vsAI&&G.rec){ G.__rew={pending:true};
+      econDo('claimAi',{rec:G.rec},true).then(r=>{ g.__rew=r&&r.res?r.res:{none:1,why:'Premio non verificato.'}; const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); });
+      return G.__rew; }
+    return G.__rew={none:1};
+  }
   const o=ownLoad(); o.games++; o.wins=o.wins||0; const win=G.winner===me; if(win) o.wins++;
   const got=win?PACK.winAmt:PACK.lossAmt; o.coins+=got;
   ownSave(); return G.__rew={got,win};
@@ -714,15 +721,18 @@ function cardModal(c,refresh,extraHtml){
   const d=modal(`${bigCard(c)}${extraHtml?extraHtml():''}${craftBar(c)}<div class="row" style="margin-top:10px"><button class="btn" id="mClose">Chiudi</button></div>`);
   $('#mClose').onclick=()=>{ closeModal(); refresh&&refresh(); };
   d.onclick=e=>{ if(e.target===d){ closeModal(); refresh&&refresh(); } };
-  const mk=$('#crMake'); if(mk) mk.onclick=()=>{ if(craftCard(c.n)){ sfx('epic'); toast(`Hai creato ${c.n}`); cardModal(c,refresh,extraHtml); } };
+  const mk=$('#crMake'); if(mk) mk.onclick=async()=>{ if(await craftX(c.n)){ sfx('epic'); toast(`Hai creato ${c.n}`); cardModal(c,refresh,extraHtml); } };
   const sl=$('#crSell'); if(sl) sl.onclick=()=>{ const k=owned(c.n); const all=loadDecks(); const hit=Object.entries(all).filter(([cls,l])=>(l||[]).some(([n,q])=>n===c.n&&q>k-1)).map(([cls])=>HEROES[cls].n);
     const base=Object.keys(E.DECKS).filter(cls=>baseOwned(cls)&&E.DECKS[cls].some(([n,q])=>n===c.n&&q>k-1)).map(cls=>HEROES[cls].n);
     const m=modal(`<h3>Vendere ${esc(c.n)}?</h3><div class="note" style="margin:0 auto 10px">Riceverai <b>${SELL[c.r]} GRA</b>; ricrearla costa ${CRAFT[c.r]} GRA.${hit.length?`<br><b class="koc">Il tuo mazzo ${esc(hit.join(', '))} non sarà più valido.</b>`:''}${base.length?`<br><b class="koc">Non avrai più tutto il mazzo base di ${esc(base.join(', '))}.</b>`:''}</div><div class="row"><button class="btn" id="slYes">Vendi</button><button class="btn" id="slNo">Annulla</button></div>`);
     $('#slNo').onclick=()=>cardModal(c,refresh,extraHtml);
-    $('#slYes').onclick=()=>{ if(sellCard(c.n)){ sfx('coin'); toast(`Venduta: +${SELL[c.r]} GRA`); } cardModal(c,refresh,extraHtml); }; };
+    $('#slYes').onclick=async()=>{ if(await sellX(c.n)){ sfx('coin'); toast(`Venduta: +${SELL[c.r]} GRA`); } cardModal(c,refresh,extraHtml); }; };
   return d;
 }
-function rewardHtml(){ const r=G&&G.__rew; if(!r||r.none) return '';
+function rewardHtml(){ const r=G&&G.__rew; if(!r) return '';
+  if(r.none) return r.why?`<div class="endrew off">${esc(r.why)}</div>`:'';
+  if(r.pending) return `<div class="endrew wait">⏳ Il server sta verificando il premio…</div>`;
+  if(r.cap) return `<div class="endrew off">Premio giornaliero esaurito: domani altre partite premiate · hai ${ownLoad().coins} ${GI}</div>`;
   return `<div class="endrew">${GI} <b>+${r.got} GRA</b> per la ${r.win?'vittoria':'sconfitta'} · ora ne hai ${ownLoad().coins}</div>`; }
 function packArt(big){ return `<div class="pack ${big?'big':''}"><div class="pk-in"><div class="pk-top"></div><div class="pk-emb"><img src="art/gra_oro.svg" alt=""></div><div class="pk-t">ELGRAVION</div><div class="pk-s">Primo Set · 5 carte</div></div></div>`; }
 function packsScreen(){
@@ -744,11 +754,12 @@ function packsScreen(){
         <div class="note" style="text-align:left;max-width:none">Pacchetti aperti: ${o.opened}. Nei mazzi puoi usare solo le carte che possiedi; una classe si sblocca quando hai un mazzo valido per lei.</div>
       </div></div></div>`;
   $('#cBack').onclick=()=>menu();
-  $('#pBuy').onclick=()=>{ if(buyPack()){ sfx('coin'); packsScreen(); } };
+  $('#pBuy').onclick=async()=>{ if(await buyPackX()){ sfx('coin'); packsScreen(); } };
   $('#pOpen').onclick=()=>openPackAnim();
 }
-function openPackAnim(){
-  const res=openPack(); if(!res) return; sfx('rip'); revealCards(res,{pack:true});
+async function openPackAnim(){
+  let res; if(ACC()){ const r=await econDo('openPack'); if(!r) return; res=r.res.cards; bonusToast(r.res.bonus); } else res=openPack();
+  if(!res) return; sfx('rip'); revealCards(res,{pack:true});
 }
 function revealCards(res,opt){
   opt=opt||{};
@@ -764,7 +775,7 @@ function revealCards(res,opt){
       if(opt.after){ btns.innerHTML=`<button class="btn" id="pkDone">Continua</button>`; $('#pkDone').onclick=()=>{ closeModal(); opt.after(); }; return; }
       btns.innerHTML=`${o.packs?`<button class="btn" id="pkMore">Apri un altro (${o.packs})</button>`:o.coins>=PACK.cost?`<button class="btn" id="pkBuyMore">Compra e apri · ${PACK.cost} ${GI}</button>`:''}<button class="btn" id="pkDone">Fatto</button>`;
       const m=$('#pkMore'); if(m) m.onclick=()=>openPackAnim();
-      const b=$('#pkBuyMore'); if(b) b.onclick=()=>{ if(buyPack()){ sfx('coin'); openPackAnim(); } };
+      const b=$('#pkBuyMore'); if(b) b.onclick=async()=>{ if(await buyPackX()){ sfx('coin'); openPackAnim(); } };
       $('#pkDone').onclick=()=>packsScreen(); };
     const flip=i=>{ if(!left.has(i)) return; left.delete(i); const el=cards.querySelector(`[data-i="${i}"]`); el.classList.add('flip'); const r=res[i].r;
       sfx(r==='Leggendaria'?'leg':r==='Epica'?'epic':r==='Rara'?'rare':'flip');
@@ -879,27 +890,34 @@ function tutHL(){ if(!TUT) return; const s=TUT_STEPS[TUT.i]; document.querySelec
 
 // ======================= PARTITA LOCALE CONTRO IA
 // Mazzi aggiuntivi del computer (uno per classe); in partita sceglie a caso tra questo e il mazzo base.
-const AI_DECKS={"minatore": {"n": "Tesori del Profondo", "d": [["Minatore di Valborea", 2], ["Spaccapietre", 2], ["Guardia della Stretta del Respiro", 2], ["Lucidatore di Gemme", 1], ["Cartografa di Lyr Veil", 1], ["Cercatore di Meteore", 1], ["Colosso di Piombo", 1], ["Frammento Alieno", 2], ["Crollo della Galleria", 2], ["Ponte di Sveltopasso", 1], ["Astrologa della Caduta", 2], ["Tempesta su Sveltopasso", 2], ["Custode della Corona di Ghiaccio", 2], ["Iggyar, Guardiano del Pedaggio", 1], ["Gran Minatrice di Valborea", 1], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Cacciatore Xeno", 1], ["Frammento Xeno", 1], ["Esploratore di Prescix", 1], ["Assassino dei Defectus Imperi", 1], ["Archonimbus", 1], ["Veggente della Corona di Ghiaccio", 2], ["Incastonatore di Valborea", 2], ["Larva della Scissione", 1]]}, "adepto": {"n": "Assalto dei Vicoli", "d": [["Pashey Errante", 3], ["Ratto delle Grondaie", 3], ["Straxiart Inquieto", 3], ["Nidiata dei Vicoli", 3], ["Monaco del Silenzio", 2], ["Corriera Codalunga", 1], ["Vendetta degli Ungart", 2], ["Custode Zhyol", 1], ["Araldo del Re Ratto", 1], ["Aspirante al Seggio", 1], ["Meigubra", 2], ["Spirito della Vendetta", 1], ["Tisquy", 1], ["Raighar Ungart", 1], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Assassino dei Defectus Imperi", 1], ["Frammento Xeno", 1], ["Vagabondo della Nebbia", 1], ["Novizio dei Cinque Clan", 3], ["Sciame delle Chiaviche", 2]]}, "traccia": {"n": "Sentieri Perduti", "d": [["Guida di Nerveth", 1], ["Vivandiera di Nerveth", 2], ["Sentinella del Sottosuolo", 2], ["Mercante d'Armi della Seraspina", 1], ["Superstite dell'Orologio", 1], ["Agguato nelle Gallerie", 2], ["Branco Eley", 1], ["Capocordata", 1], ["Lettore di Nebbia", 2], ["Orologio della Violenza", 2], ["Spedizione verso il Sud", 2], ["Ciò che Torna dalla Nebbia", 2], ["Pando, l'Uomo Panda", 1], ["Dallvad, l'Uomo Chiave", 1], ["Stige nebbiosa", 2], ["Depand", 1], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Cacciatore Xeno", 1], ["Corsaro di Arolderion", 1], ["Assassino dei Defectus Imperi", 1], ["Esploratore di Prescix", 1], ["Portamappe Eley", 2], ["Becchino dell'Orologio", 2], ["Larva della Scissione", 1]]}, "incisore": {"n": "Laboratorio Proibito", "d": [["Costrutto di Pietra Bianca", 2], ["Carne Coltivata", 2], ["Scimmia Frondosa Innestata", 1], ["Chirurgo del Recupero", 1], ["Bisturi Runico", 2], ["Golem dell'Officina", 1], ["Ospite di Ogmeth", 1], ["Laboratorista della Giungla", 2], ["Chimera di Khromara", 2], ["Colosso Runico", 1], ["Rinascita in Carne", 2], ["L'Opera Ultima", 1], ["Kheth-Amarra, la Madre Silente", 1], ["Le Figlie di Kheth-Amarra", 2], ["Tripia", 2], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Cacciatore Xeno", 1], ["Frammento Xeno", 1], ["Assassino dei Defectus Imperi", 1], ["Ospite dell'Altro Cielo", 1], ["Esploratore di Prescix", 1], ["Ampolla della Giungla", 2], ["Chirurga delle Rune", 2], ["Gemello Scisso", 1]]}, "scudiera": {"n": "Corte del Lago", "d": [["Cucciolo di Magga", 2], ["Legionario di Aurelion", 2], ["Rito di Legame", 2], ["Magga dallo Sguardo di Pietra", 1], ["Funzionario del Vomagg", 1], ["Magga Giovane Corazzata", 1], ["Guardia del Lago Vomagg", 1], ["Vouhdel, la Freccia del Mercato", 1], ["Decreto Imperiale", 2], ["Jodathyr, il Bastione Consacrato", 2], ["Matriarca del Lago", 2], ["Chromakyon, il Trono delle Cinque Gemme", 1], ["Hoegh l'Avanguardia", 1], ["Cavaliere Acrobata", 2], ["Porto di Casa Uyvergg", 2], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Corsaro di Arolderion", 1], ["Vagabondo della Nebbia", 1], ["Assassino dei Defectus Imperi", 1], ["Archonimbus", 1], ["Frammento Xeno", 1], ["Sorvegliante delle Covate", 2], ["Magga Sentinella", 2], ["Gemello Scisso", 1]]}, "sirena": {"n": "Canto degli Abissi", "d": [["Marinaio della Baia", 2], ["Cantrice della Marea", 1], ["Serpe di Corallo", 2], ["Fiocinatore della Ciurma", 1], ["Squalo della Baia", 1], ["Richiamo delle Onde", 2], ["Medusa degli Abissi", 1], ["Primo Ufficiale", 1], ["Vedova del Porto", 2], ["Nostromo della Camera Rossa", 2], ["Baessa", 2], ["Canto della Marea Rossa", 2], ["Cathuviss del Mar Placido", 2], ["Leviatano della Baia della Giustizia", 1], ["La Voce dell'Amarina", 1], ["Vuldros, il Vecchio della Foce", 1], ["Mercenario di Nerveth", 1], ["Esattore della Camera Rossa", 1], ["Corsaro di Arolderion", 1], ["Assassino dei Defectus Imperi", 1], ["Ospite dell'Altro Cielo", 1], ["Frammento Xeno", 1], ["Tamburino della Marina", 2], ["Polena di CrimsonHolt", 2], ["Larva della Scissione", 1]]}};
 function startLocal(){
   const others=ALL_CLS.filter(c=>c!==chosenCls); const other=others[Math.floor(Math.random()*others.length)];
   const alt=AI_DECKS[other]&&Math.random()<0.5?AI_DECKS[other]:null;
-  G=E.newGame({classes:[chosenCls,other],names:['Tu','Computer'],decks:[deckFor(chosenCls),alt?alt.d:null]}); me=0; vsAI=true; NET=null; sel=null;
+  const seed=privSeed();
+  G=E.newGame({seed,classes:[chosenCls,other],names:['Tu','Computer'],decks:[deckFor(chosenCls),alt?alt.d:null]}); me=0; vsAI=true; NET=null; sel=null;
   G.aiDeck=alt?alt.n:'Mazzo base';
+  // registro della partita: serve al server per verificare il premio
+  G.rec={seed,classes:[chosenCls,other],decks:[deckFor(chosenCls),alt?alt.d:null],diff:SET.diff==='difficile'?'h':'n',log:[]};
   render(); toast(`Il computer gioca ${HEROES[other].n} · ${alt?`mazzo «${alt.n}»`:'mazzo base'}`); aiLoop();
 }
 function aiLoop(){
   if(!vsAI||!G||busy) return;
-  const a=SET.diff==='difficile'?E.aiHard(G,1):E.ai(G,1);
+  const hard=G.rec?G.rec.diff==='h':SET.diff==='difficile';
+  const pickAi=()=>hard?E.aiHard(G,1):E.ai(G,1);
+  const a=pickAi();
   if(!a){ render(); return; }
-  busy=true;
-  setTimeout(()=>{ busy=false; if(!G) return; const r=E.act(G,1,a); if(r&&a.type!=='end') E.act(G,1,{type:'end'}); render(); aiLoop(); }, window.FAST?15:Math.round((a.type==='mulligan'||a.type==='choose'?250:650)*(SPEED_MULT[SET.speed]||1)));
+  busy=true; const g0=G;
+  setTimeout(()=>{ busy=false; if(!G||G!==g0) return; const b=pickAi(); if(!b){ render(); return; }
+    const bc=JSON.parse(JSON.stringify(b)); const r=E.act(G,1,b); if(G.rec) G.rec.log.push([1,bc]);
+    if(r&&b.type!=='end'){ E.act(G,1,{type:'end'}); if(G.rec) G.rec.log.push([1,{type:'end'},1]); }
+    render(); aiLoop(); }, window.FAST?15:Math.round((a.type==='mulligan'||a.type==='choose'?250:650)*(SPEED_MULT[SET.speed]||1)));
 }
 
 // ======================= AZIONI DEL GIOCATORE
 function send(a){
   sel=null; a=E.enrich(G,me,a);
   if(NET){ NET.local(a); return; }
-  const r=E.act(G,me,a); if(r) toast(r); render(); aiLoop();
+  const ac=G.rec?JSON.parse(JSON.stringify(a)):null; const r=E.act(G,me,a); if(r) toast(r); else if(G.rec) G.rec.log.push([0,ac]); render(); aiLoop();
 }
 
 // ======================= RENDER
@@ -1563,7 +1581,7 @@ function endParticles(d,win){ const box=d.querySelector('.endfx'); if(!box) retu
 function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
-  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=(NET&&NET.srv)?srvEnd(NET,G):rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
+  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; const x=srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; G.__rankRes=x; } } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
     const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};
@@ -1589,7 +1607,7 @@ function overlays(){
     const d=modal(`<h3>Decreto</h3><div class="note" style="margin:0 auto 10px"><b>Sigillo</b>: un tuo slot diventa grigio e conta come slot d'Emozione (anche per il Focus).<br><b>Revoca</b>: uno slot dell'avversario diventa d'oro e non potrà più prendere il colore della sua Emozione.</div><div class="row">${canS?'<button class="btn" id="mSig">Sigillo</button>':''}${canR?'<button class="btn" id="mRev">Revoca</button>':''}</div>`); d.dataset.lock=1;
     const go=k=>{ closeModal(); sel={kind:'decreto',k}; render(); };
     const a=$('#mSig'); if(a) a.onclick=()=>go('sigillo'); const b=$('#mRev'); if(b) b.onclick=()=>go('revoca'); return; }
-  if(pd.type==='pegnoCheck') return;
+  if(pd.type==='pegnoCheck'||pd.type==='tutor') return;
   if(pd.p!==me){ if(pd.type!=='emo'){ const d=modal(`<h3>L'avversario sta scegliendo…</h3>`); d.dataset.lock=1; } return; }
   if(pd.type==='scava'){
     const d=modal(`<h3>Scava</h3><div class="note" style="margin:0 auto">Prendi una carta: le altre vanno in fondo al mazzo. Se non ne prendi nessuna, aggiungi una Stella alla mano.</div>
@@ -1666,6 +1684,7 @@ function tick(){
   if(TUT) tutCheck();
   // Pegno: chi possiede la carta dice se è saldato, senza mostrarla
   const pd=G.pending[0];
+  if(pd&&pd.type==='tutor'&&pd.p===me){ const k='t'+G.turn+':'+G.log.length; if(!autoPeg||autoPeg.k!==k||Date.now()-autoPeg.t>3000){ autoPeg={k,t:Date.now()}; send({type:'choose',choice:null}); } }
   if(pd&&pd.type==='pegnoCheck'&&pd.p===me){ const k=G.turn+':'+G.log.length; if(!autoPeg||autoPeg.k!==k||Date.now()-autoPeg.t>3000){ autoPeg={k,t:Date.now()}; send({type:'choose',choice:E.pegnoReady(G,me)}); } }
   const left=paintTimer();
   if(left===0 && !TUT && !(vsAI&&!SET.timer&&!NET)){
@@ -1698,10 +1717,11 @@ async function hostOnline(codeArg,opt){
   setNetMsg('Collegamento…');
   const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
   const code=codeArg||Math.random().toString(36).slice(2,7);
-  let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
+  const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
+  let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
   const net={host:true,code,r,log:[],seen:new Set(),applied:0,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
   NET=net; me=0; vsAI=false; net.priv=privSeed();
-  if(net.ranked&&SRV()&&/^rk/.test(code)){ net.srv=true; net.room='elg-'+code; net.hn=randHex();
+  if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.hn=randHex();
     try{ await ELG_NET.rk.register(net.room,{cls:chosenCls,deck:deckFor(chosenCls),hc:await sha256hex(net.hn)}); }
     catch(e){ try{r.leave()}catch(x){} NET=null; menu(); return toast('Classificata: registrazione sul server non riuscita. Riprova.'); } }
   if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
@@ -1737,10 +1757,11 @@ async function joinOnline(code,opt){
   if(!opt.mode && !/^[a-z0-9]{4,6}$/.test(code)) return setNetMsg('Scrivi il codice della partita (5 caratteri).');
   setNetMsg('Collegamento…');
   const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
-  let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
+  const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
+  let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
   const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
   NET=net; me=1; vsAI=false; net.priv=privSeed();
-  if(net.ranked&&SRV()&&/^rk/.test(code)){ net.srv=true; net.room='elg-'+code; net.gn=randHex();
+  if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.gn=randHex();
     try{ await ELG_NET.rk.register(net.room,{cls:chosenCls,deck:deckFor(chosenCls),gn:net.gn}); }
     catch(e){ try{r.leave()}catch(x){} NET=null; menu(); return toast('Classificata: registrazione sul server non riuscita. Riprova.'); } }
   if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
@@ -1766,6 +1787,46 @@ async function joinOnline(code,opt){
   net.leave=()=>{ net.unsub.forEach(f=>{try{f()}catch(e){}}); net.timers.forEach(clearInterval); try{r.leave()}catch(e){} };
 }
 
+// ======================= ACCOUNT: COLLEZIONE, GRA, PACCHETTI E MAZZI SUL SERVER
+// Con l'accesso Google e il server attivo, la collezione sta sull'account: la ritrovi su ogni dispositivo
+// e cambia solo tramite il server (premi verificati, pacchetti aperti dal server).
+let ACC_ON=false, ACC_SYNCING=false;
+function ACC(){ return ACC_ON && !window.claude && !!(window.ELG_NET&&window.ELG_NET.econ); }
+function normOwn(p){ p=Object.assign({cards:{},coins:0,games:0,wins:0,packs:0,pity:0,opened:0,start:null,done:{},cosm:[]},p||{}); p.cards=p.cards||{}; p.done=p.done||{}; p.cosm=Array.isArray(p.cosm)?p.cosm:Object.values(p.cosm||{}); p.gStart=1; return p; }
+function setProfile(p){ OWN=normOwn(p); }
+function econMsg(e){ const m=(e&&e.message)||''; return /internal|deadline|unavailable/i.test((e&&e.code)||'')?'Server non raggiungibile: riprova tra poco.':(m||'Operazione non riuscita.'); }
+async function econDo(op,data,quiet){ try{ const r=await window.ELG_NET.econ(op,data); if(r&&r.profile) setProfile(r.profile); return r; }catch(e){ if(!quiet) toast(econMsg(e)); return null; } }
+async function buyPackX(){ if(!ACC()) return buyPack(); return !!(await econDo('buyPack')); }
+async function craftX(n){ if(!ACC()) return craftCard(n); const r=await econDo('craft',{n}); if(r&&r.res) bonusToast(r.res.bonus); return !!r; }
+async function sellX(n){ if(!ACC()) return sellCard(n); return !!(await econDo('sell',{n})); }
+function bonusToast(got){ got=got||[]; if(!got.length) return; sfx('leg'); toast(`Collezione completa: ${got.map(k=>k==='neutrali'?'Neutrali':HEROES[k].n).join(', ')}!`); }
+async function syncProfile(){ if(!ACC()) return; const r=await econDo('sync',{},true); if(r&&r.profile&&!G&&$('.menu')) menu(); }
+let DECKS_T=null;
+function decksPush(){ clearTimeout(DECKS_T); DECKS_T=setTimeout(()=>{ try{ window.ELG_NET.decks.set(DECKS_MEM||{}).catch(()=>{}); }catch(e){} },800); }
+async function accSync(){
+  if(window.claude||!window.ELG_NET||!window.ELG_NET.econ||ACC_SYNCING) return;
+  try{ await window.ELG_NET.checkRanked(); }catch(e){}
+  if(!window.ELG_NET.econOn) return;
+  let u=null; try{ u=await window.ELG_NET.currentUser(); }catch(e){}
+  if(!u){ accOff(); return; }
+  ACC_SYNCING=true;
+  try{
+    let local=null; try{ local=JSON.parse(localStorage.getItem(OKEY)||'null'); }catch(e){}
+    const r=await window.ELG_NET.econ('sync',{local});
+    ACC_ON=true; setProfile(r.profile);
+    if(r.season&&r.season.rw){ rankLoad(); RANK.__reward={end:r.season.end,rw:r.season.rw,gained:r.season.gained||[]}; }
+    // mazzi: quelli sull'account vincono; se non ce ne sono, si caricano quelli di questo dispositivo
+    let sd=null; try{ sd=await window.ELG_NET.decks.get(); }catch(e){}
+    if(sd&&typeof sd==='object'){ const fix={}; for(const [k,l] of Object.entries(sd)){ const arr=Array.isArray(l)?l:Object.values(l||{}); fix[k]=arr.map(x=>Array.isArray(x)?x:Object.values(x||{})); } DECKS_MEM=fix; }
+    else { loadDecks(); decksPush(); }
+    await rankPull(true);
+    if(!G&&!$('#ov')) menu();
+  }catch(e){ toast('Account: sincronizzazione non riuscita ('+econMsg(e)+')'); }
+  ACC_SYNCING=false;
+}
+function accOff(){ if(!ACC_ON) return; ACC_ON=false; OWN=null; DECKS_MEM=null; }
+if(window.ELG_NET&&window.ELG_NET.econ) setTimeout(accSync,1500);
+
 // ======================= CLASSIFICATA CON ARBITRO SUL SERVER (Firebase)
 // Il seme comune nasce da un numero dell'ospite (impegnato prima) e uno di chi si unisce: nessuno lo sceglie da solo.
 // A fine partita ognuno rivela il proprio seme privato; il server rigioca la partita e aggiorna i ranghi.
@@ -1782,10 +1843,13 @@ function srvEnd(net,g){
     if(!x||!x.status||g.__rankFinal) return; g.__rankFinal=true; try{ off&&off(); }catch(e){}
     let uid=null; try{ const u=await ELG_NET.currentUser(); uid=u&&u.uid; }catch(e){}
     const d=x.d&&uid&&x.d[uid];
+    if(x.status==='done'&&d&&d.reward){ g.__rew=Object.assign({},d.reward); syncProfile(); }
+    else if(g.__rew&&g.__rew.pending) g.__rew={none:1,why:x.status==='done'?'':'Partita non valida: nessun premio.'};
+    if(!g.ranked){ const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); return; }
     if(x.status==='done'&&d){ await rankPull(true); g.__rankRes={before:d.before,after:d.after,note:d.note,win:d.win};
       if((d.win?1:0)!==(g.winner===me?1:0)) toast('Il server ha corretto il risultato: '+(d.win?'vittoria':'sconfitta')+'.'); }
     else g.__rankRes={void:true,note:'Partita non valida per la Classificata: rango invariato.'};
-    paint(); }); }catch(e){}
+    paint(); const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); }); }catch(e){}
   setTimeout(()=>{ if(!g.__rankFinal){ try{ off&&off(); }catch(e){} } },300000);
   return res;
 }
@@ -1833,7 +1897,7 @@ function rankBetter(a,b){ return a.tier>b.tier||(a.tier===b.tier&&a.tier<CREMISI
 function seasonCheck(){
   const r=RANK, now=seasonKey(); if(r.season===now) return;
   const end={season:r.season,tier:r.tier,lvl:r.lvl,rating:r.rating,value:rankValue(r),place:r.place||null};
-  const rw=SEASON_REWARDS[r.tier]; const o=ownLoad(); o.coins+=rw.gra; o.packs+=rw.packs; o.cosm=o.cosm||[];
+  const rw=SEASON_REWARDS[r.tier]; const o=ACC()?{coins:0,packs:0,cosm:[]}:ownLoad(); o.coins+=rw.gra; o.packs+=rw.packs; o.cosm=o.cosm||[];
   const gained=[]; if(rw.cosm&&!o.cosm.includes(rw.cosm)){ o.cosm.push(rw.cosm); gained.push(rw.cosm); }
   if(r.tier===CREMISI && r.place && r.place<=200 && !o.cosm.includes('cornice-cremisi')){ o.cosm.push('cornice-cremisi'); gained.push('cornice-cremisi'); }
   ownSave();
