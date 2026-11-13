@@ -777,7 +777,39 @@ function starterModal(){
   d.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{ const cls=b.dataset.st;
     const m2=modal(`<h3>Iniziare con ${esc(HEROES[cls].n)}?</h3><div class="note" style="margin:0 auto 10px">La scelta non si può cambiare.</div><div class="row"><button class="btn" id="stYes">Conferma</button><button class="btn" id="stNo">Indietro</button></div>`); m2.dataset.lock=1;
     $('#stNo').onclick=()=>starterModal();
-    $('#stYes').onclick=async()=>{ let res; if(ACC()){ const r=await econDo('starter',{cls}); if(!r) return; res=r.res; } else res=grantStarter(cls); chosenCls=cls; sfx('burst'); revealCards(res,{title:'I tuoi doni di benvenuto',after:()=>menu()}); }; });
+    $('#stYes').onclick=async()=>{ let res; if(ACC()){ const r=await econDo('starter',{cls}); if(!r) return; res=r.res; } else res=grantStarter(cls); chosenCls=cls; giftReveal(res,{title:'I tuoi doni di benvenuto',after:()=>menu()}); }; });
+}
+// ---- dono di benvenuto: un pacco regalo che si apre e le carte scorrono una alla volta da un mazzetto ----
+function giftReveal(res,opt){
+  opt=opt||{}; const N=res.length;
+  const d=modal(`<div class="gift"><h3 class="pktitle">${esc(opt.title||'Un dono per te')}</h3>
+    <div class="gstage"><button class="gbox" id="gBox" aria-label="Apri il dono"><i class="gglow"></i><span class="glid"><i class="gbow l"></i><i class="gbow r"></i><i class="gknot"></i></span><span class="gbody"></span><i class="grib"></i></button></div>
+    <div class="gcount">Tocca il pacco per aprirlo</div><div class="row pkbtns"></div></div>`,'pkbox giftbox'); d.dataset.lock=1;
+  const box=d.querySelector('.gift'), stage=box.querySelector('.gstage'), cnt=box.querySelector('.gcount'), btns=box.querySelector('.pkbtns');
+  // dimensione della carta: sta sempre dentro lo schermo (telefono in orizzontale compreso)
+  const fit=()=>{ const h=Math.max(150,Math.min(window.innerHeight-(window.innerHeight<520?195:240),420)), w=Math.min(window.innerWidth*0.8,520); box.style.setProperty('--gs',Math.min(h/290,w/190,1.45).toFixed(3)); };
+  fit(); const onR=()=>fit(); window.addEventListener('resize',onR);
+  let cur=-1, busy=false;
+  const summary=()=>{ window.removeEventListener('resize',onR); stage.innerHTML=`<div class="gsum">${res.map(x=>`<div class="gsc r-${x.r}" data-n="${esc(x.n)}">${colCard(CARDS[x.n],'')}</div>`).join('')}</div>`;
+    stage.classList.add('done'); cnt.textContent=`${N} carte aggiunte alla collezione`;
+    stage.querySelectorAll('.gsc').forEach(el=>el.onclick=()=>{ const c=CARDS[el.dataset.n]; const keep=d; d.remove(); const m=modal(`${bigCard(c)}<div class="row" style="margin-top:10px"><button class="btn" id="pkBack">Indietro</button></div>`); $('#pkBack').onclick=()=>{ m.remove(); document.body.appendChild(keep); }; });
+    btns.innerHTML=`<button class="btn" id="pkDone">Continua</button>`; $('#pkDone').onclick=()=>{ closeModal(); opt.after&&opt.after(); }; };
+  const top=()=>stage.querySelector(`.gcard[data-i="${cur}"]`);
+  const reveal=i=>{ const el=stage.querySelector(`.gcard[data-i="${i}"]`); if(!el) return; const r=res[i].r; el.classList.add('top');
+    const show=()=>{ el.classList.add('flip','r-'+r); sfx(r==='Leggendaria'?'leg':r==='Epica'?'epic':r==='Rara'?'rare':'flip'); if(r==='Leggendaria') legendFx(el,box); busy=false; };
+    cnt.innerHTML=`<b>${i+1}</b> / ${N} · <span style="color:${RAR_COL[r]||'#ddd'}">${esc(r)}</span>`;
+    if(r==='Leggendaria'&&!REDUCED){ busy=true; el.classList.add('legpre'); sfx('kw'); setTimeout(()=>{ el.classList.remove('legpre'); show(); },700); } else { busy=true; setTimeout(show,40); } };
+  const next=()=>{ if(busy) return; const el=top(); if(el){ busy=true; el.classList.add('away'); setTimeout(()=>el.remove(),420); }
+    cur++; if(cur>=N){ setTimeout(summary,el?380:0); return; } setTimeout(()=>reveal(cur),el?200:0); };
+  const open=()=>{ const g=$('#gBox'); if(!g||g.classList.contains('open')) return; g.classList.add('open'); sfx('burst');
+    setTimeout(()=>{ stage.innerHTML=`<div class="gpile">${res.map((x,i)=>`<div class="gcard" data-i="${i}" style="--k:${N-1-i};z-index:${N-i}"><div class="gin"><div class="gback"><img src="art/gra_oro.svg" alt=""></div><div class="gface">${colCard(CARDS[x.n],'')}<div class="pktag new">Nuova!</div></div></div></div>`).join('')}</div>`;
+      stage.querySelector('.gpile').onclick=next; cnt.textContent='Tocca le carte per scoprirle';
+      btns.innerHTML=`<button class="btn" id="gNext">Avanti ›</button><button class="btn" id="gAll">Mostra tutte</button>`;
+      $('#gNext').onclick=next; $('#gAll').onclick=()=>{ busy=false; summary(); };
+      // scorrimento col dito: anche trascinare la carta fa passare alla successiva
+      let sx=null; const pile=stage.querySelector('.gpile'); pile.addEventListener('pointerdown',e=>{ sx=e.clientX; }); pile.addEventListener('pointerup',e=>{ if(sx!=null&&Math.abs(e.clientX-sx)>40){ e.stopPropagation(); next(); } sx=null; });
+      setTimeout(next,350); },REDUCED?50:650); };
+  $('#gBox').onclick=open;
 }
 function ownSave(){ if(ACC()) return; try{ localStorage.setItem(OKEY,JSON.stringify(OWN)); }catch(e){} }
 function owned(n){ return ownLoad().cards[n]||0; }
