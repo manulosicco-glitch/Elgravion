@@ -1020,7 +1020,7 @@ const EMO_TXT={
 };
 function emoInfo(pl,isMe){
   const n=pl.slots.filter(s=>s.emo).length, H=HEROES[pl.cls];
-  return `<div class="emoinfo ${isMe?'me':'op'} ${n?'act':''}" style="--emo:${EMO_COLOR[pl.cls]}"><div class="eh"><img src="art/simboli/${pl.cls}.svg" alt=""><b>${esc(H.e)}</b><span>${n?n+' attiv'+(n===1?'o':'i'):'nessuno'}</span></div><div class="et">${pl.cls==='scudiera'?'':`Un seguace ${isMe?'della tua':'della sua'} classe giocato qui: `}${EMO_TXT[pl.cls]||''}<div class="efo ${E.focusOn(pl)?'on':''}"><b>Focus</b> ${E.focusOn(pl)?'attivo: qui costa <b>1 GRA in meno</b>':`dal 3° slot d'Emozione (${n}/3): costerà 1 GRA in meno`}</div></div><div class="es">Qui la Difesa è una soglia: muore solo se in un turno subisce danni pari o superiori alla Difesa.</div></div>`;
+  return `<div class="emoinfo ${isMe?'me':'op'} ${n?'act':''}" style="--emo:${EMO_COLOR[pl.cls]}"><div class="eh"><img src="art/simboli/${pl.cls}.svg" alt=""><b>${esc(H.e)}</b><span>${n?n+' attiv'+(n===1?'o':'i'):'nessuno'}</span></div><div class="et">${pl.cls==='scudiera'?'':`Un seguace ${isMe?'della tua':'della sua'} classe giocato qui: `}${EMO_TXT[pl.cls]||''}<div class="efo ${E.focusOn(pl)?'on':''}"><b>Focus</b> ${E.focusOn(pl)?'attivo: qui costa <b>1 GRA in meno</b>':`dal ${E.focusMin(pl)}° slot d'Emozione (${n}/${E.focusMin(pl)}): costerà 1 GRA in meno`}</div></div><div class="es">Qui la Difesa è una soglia: muore solo se in un turno subisce danni pari o superiori alla Difesa.</div></div>`;
 }
 // ======================= PIETRIFICA: la carta resta di pietra finché l'effetto è attivo
 function stoneHtml(u){
