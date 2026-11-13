@@ -501,11 +501,13 @@ let MM=null;
 function mmCode(a,b){ const t=[a,b].sort().join('|'); let h=2166136261; for(const ch of t){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return (h>>>0).toString(36).padStart(6,'0').slice(-6); }
 // Ricerca automatica: i giocatori in cerca si vedono in una stanza d'attesa (una per Amichevole e una per Classificata),
 // si ordinano per grado e si accoppiano a due a due; il codice della partita nasce dai due identificativi.
-async function findMatch(mode){
+const MM_WAIT=120000; // dopo 2 minuti senza avversari la ricerca si ferma
+async function findMatch(mode,t0){
+  t0=t0||Date.now();
   mode=mode==='classificata'?'classificata':'amichevole'; const ranked=mode==='classificata'; closeModal();
-  const h=HEROES[chosenCls]; let secs=0;
+  const h=HEROES[chosenCls]; let secs=Math.floor((Date.now()-t0)/1000);
   const d=modal(`<div class="mm ${ranked?'rk':''}"><div class="mmring"><img src="art/eroi/${chosenCls}_art.jpg" alt=""></div>
-    <h3>${ranked?'Classificata':'Amichevole'}</h3>${ranked?`<div class="mmrank">${esc(rankName())}</div>`:''}<div class="note" id="mmTxt">Cerco un avversario per ${esc(h.n)}…</div><div class="mmtime" id="mmTime">0:00</div>
+    <h3>${ranked?'Classificata':'Amichevole'}</h3>${ranked?`<div class="mmrank">${esc(rankName())}</div>`:''}<div class="note" id="mmTxt">Cerco un avversario per ${esc(h.n)}…</div><div class="mmtime" id="mmTime">${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}</div>
     <div class="row"><button class="btn" id="mmCancel">Annulla</button></div></div>`,'mmbox');
   d.dataset.lock=1;
   const st={done:false,mm:null,timer:null}; MM=st;
@@ -527,12 +529,12 @@ async function findMatch(mode){
     const list=[...new Map(all.map(x=>[x.id,x])).values()].sort((a,b)=>(a.score-b.score)||(a.id<b.id?-1:1));
     const i=list.findIndex(x=>x.id===myId); if(i<0) return;
     const partner=list[i%2===0?i+1:i-1]; const t=$('#mmTxt');
-    if(!partner){ last=null; stable=0; if(t) t.textContent=list.length>1?'Sto abbinando gli avversari…':'In attesa di un avversario…'; return; }
+    if(!partner){ last=null; stable=0; if(Date.now()-t0>MM_WAIT) return offline('Al momento non ci sono giocatori attivi. Riprova più tardi, oppure gioca contro il computer.'); if(t) t.textContent=list.length>1?'Sto abbinando gli avversari…':'In attesa di un avversario…'; return; }
     if(t) t.textContent='Avversario trovato: collegamento…';
     if(partner.id===last) stable++; else { last=partner.id; stable=1; }
     if(stable<3) return;
     const code=mmCode(myId,partner.id), host=myId<partner.id; end(); closeModal();
-    if(host) hostOnline(code,{ranked,mode}); else joinOnline(code,{ranked,mode});
+    if(host) hostOnline(code,{ranked,mode,t0}); else joinOnline(code,{ranked,mode,t0});
   },700);
 }
 
@@ -1674,9 +1676,12 @@ async function hostOnline(codeArg,opt){
   let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
   const net={host:true,code,r,log:[],seen:new Set(),applied:0,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
   NET=net; me=0; vsAI=false;
+  if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
+  else {
   app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Codice partita: <span style="letter-spacing:6px">${code.toUpperCase()}</span></h3>
    <div class="note">Dai questo codice al tuo avversario: deve aprire questa pagina, scegliere la classe, scrivere il codice e premere Unisciti.</div><div class="note" id="netmsg">In attesa dell'avversario…</div><button class="btn" id="bBack">Annulla</button></div>`;
   $('#bBack').onclick=()=>menu();
+  }
   let start=null;
   net.unsub.push(r.on('hello',m=>{
     if(m.isMe) return; const cls=ALL_CLS.includes(m.data&&m.data.cls)?m.data.cls:'sirena';
@@ -1693,7 +1698,7 @@ async function hostOnline(codeArg,opt){
   }));
   net.unsub.push(r.on('need',m=>{ if(m.isMe) return; const from=(m.data&&m.data.from)|0; for(let i=from;i<Math.min(net.log.length,from+12);i++) r.emit('act',{i,...net.log[i]}); if(start) r.emit('start',start); }));
   net.timers.push(setInterval(()=>{ if(G) r.emit('sync',{n:net.log.length}); },3000));
-  if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Avversario non trovato: riprovo la ricerca'); findMatch(opt.mode); } },25000));
+  if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Collegamento non riuscito: riprovo la ricerca'); findMatch(opt.mode,opt.t0); } },25000));
   net.local=a=>{ const err=E.act(G,0,a); if(err){ toast(err); render(); return; } net.log.push({pi:0,a}); r.emit('act',{i:net.log.length-1,pi:0,a}); render(); };
   net.leave=()=>{ net.unsub.forEach(f=>{try{f()}catch(e){}}); net.timers.forEach(clearInterval); try{r.leave()}catch(e){} };
 }
@@ -1705,7 +1710,8 @@ async function joinOnline(code,opt){
   let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
   const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
   NET=net; me=1; vsAI=false;
-  setNetMsg('Entrato. In attesa che la partita parta…');
+  if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
+  else setNetMsg('Entrato. In attesa che la partita parta…');
   const applyBuf=()=>{ let ch=false; while(net.buf[net.applied]){ const m=net.buf[net.applied]; delete net.buf[net.applied]; E.act(G,m.pi,m.a); if(net.waiting&&m.nonce===net.waiting.nonce) net.waiting=null; net.applied++; ch=true; } if(ch) render(); };
   net.unsub.push(r.on('start',m=>{ if(G||!m.data) return; G=E.newGame({seed:m.data.seed,classes:m.data.classes,names:['Avversario','Tu'],priv:[null,privSeed()],online:true,decks:[null,deckFor(chosenCls)]});
     G.ranked=!!(net.ranked&&m.data.ranked); G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; netWatch(net); render(); applyBuf(); }));
@@ -1715,7 +1721,7 @@ async function joinOnline(code,opt){
   const hello=()=>{ if(!G) r.emit('hello',{cls:chosenCls,ranked:net.ranked,rank:net.ranked?rankInfo():null,cosm:myCosm()}); };
   hello(); net.timers.push(setInterval(hello,2000));
   net.timers.push(setInterval(()=>{ if(net.waiting){ r.emit('req',net.waiting); } },1800));
-  if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Avversario non trovato: riprovo la ricerca'); findMatch(opt.mode); } },25000));
+  if(opt.mode) net.timers.push(setTimeout(()=>{ if(NET===net&&!G){ menu(); toast('Collegamento non riuscito: riprovo la ricerca'); findMatch(opt.mode,opt.t0); } },25000));
   net.local=a=>{ if(net.waiting) return toast('Attendi…'); net.waiting={nonce:Math.random().toString(36).slice(2),a}; r.emit('req',net.waiting); };
   net.leave=()=>{ net.unsub.forEach(f=>{try{f()}catch(e){}}); net.timers.forEach(clearInterval); try{r.leave()}catch(e){} };
 }
