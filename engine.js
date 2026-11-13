@@ -805,7 +805,7 @@ function immersione(g,p,u){
   }
 }
 function resolveOpz(g,p,pd,k){
-  if(pd.ctx==='vouhdel'){ const v=g.units[pd.src]; if(k===0) heroDamage(g,p,1); else if(v) mutare(g,v); }
+  if(pd.ctx==='vouhdel'){ const v=g.units[pd.src]; if(k===0){ heroDamage(g,p,1); if(v) v.buffD+=2; } else if(v) mutare(g,v); }
   if(pd.ctx==='maestro') summonSpirit(g,p,k===1?'straxiart':'pashey',false);
   if(pd.ctx==='raighar'){
     if(k===0){ const w=summonToken(g,p,'Muro di Roccia',1,5,{raighar:pd.src}); if(w) log(g,'Sorge un Muro di Roccia.'); }
@@ -878,8 +878,8 @@ function startTurn(g){
   p.heroA=0; p.heroAttacked=false;
   for(const u of minionsOf(g,p)){
     if(u.silenced) continue; u.age=(u.age||0)+1;
-    const stall=minionsOf(g,p).some(x=>x.n==='Stalliere Imperiale'&&empatia(g,x));
-    if(u.n==='Uovo di Magga' && u.age>=(stall?0:1)) levelUp(g,u);
+    if(u.n==='Uovo di Magga' && u.age>=1) levelUp(g,u);
+    if(u.n==='Stalliere Imperiale' && u.age>=1 && !u.stallDone){ u.stallDone=true; if(summonToken(g,p,'Uovo di Magga',0,2)) log(g,`Stalliere Imperiale porta un Uovo di Magga.`); }
     else if((u.n==='Cucciolo di Magga' || (u.n==='Magga Giovane'&&u.grown)) && u.age>=1) levelUp(g,u);
     if(p.cls==='scudiera'&&p.mutated&&u.scaglia<u.scagliaMax) u.scaglia=u.scagliaMax;
   }
@@ -888,7 +888,7 @@ function startTurn(g){
     if(d.n==='Tripia') for(const x of minionsOf(g,p)) if(x.slots.some(i=>d.slots.includes(i-1)||d.slots.includes(i+1))) x.dmg=0;
     if(d.n==='Porto di Casa Uyvergg'){ summonToken(g,p,'Drago del Porto',1,1); if(empatia(g,d)) for(const x of minionsOf(g,p)) if((x.tribe==='Drago'||x.tribe==='Thalari')&&x.scaglia<1){ x.scaglia=1; x.scagliaMax=Math.max(x.scagliaMax,1); } }
   }
-  for(const u of minionsOf(g,p)) if(u.n==='Vouhdel, la Freccia del Mercato'&&!u.silenced) g.pending.push({type:'opz',p:p.i,ctx:'vouhdel',src:u.uid,opts:['Subisci 1 danno','Vouhdel ottiene Mutare']});
+  for(const u of minionsOf(g,p)) if(u.n==='Vouhdel, la Freccia del Mercato'&&!u.silenced) g.pending.push({type:'opz',p:p.i,ctx:'vouhdel',src:u.uid,opts:['Subisci 1 danno: Vouhdel ottiene +0/+2','Vouhdel ottiene Mutare']});
   for(const u of minionsOf(g,p)){ u.tmpOrd=false; if(u.ambizione && !u.silenced && (u.empForce||slotIsEmo(g,u))){ u.buffA+=1; p.heroA+=1; } }
   if(p.heroA) log(g,`Ambizione: l'eroe di ${p.name} ottiene +${p.heroA} Attacco in questo turno.`);
   // Effetti di inizio turno
