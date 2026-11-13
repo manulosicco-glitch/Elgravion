@@ -388,13 +388,13 @@ async function shopScreen(tab){
   }
   if(SHOP_TAB==='pack'){
     const cp=S.classPack||{size:5,adam:50};
-    body.innerHTML=`${banner}<div class="shpk"><div class="shpkl">${packArt(true)}</div><div><h3>Pacchetti di classe</h3>
+    body.innerHTML=`${banner}<div class="shpk"><div class="shpkl">${packArt(true,SHOP.cls||chosenCls)}</div><div><h3>Pacchetti di classe</h3>
       <div class="note" style="text-align:left;max-width:none">Ogni pacchetto contiene <b>${cp.size} carte della classe che scegli</b> (l'ultima almeno Rara) e <b>${cp.adam} ${ADAM}</b> ${AI_}. L'${ADAM} serve <b>solo a creare carte</b>: non si spende in altro. I doppioni oltre il massimo di copie diventano ${ADAM}.</div>
       <div class="shcls">${ALL_CLS.map(c=>`<button class="shc" data-c="${c}" style="--uc:${CLS_COLOR[c]}"><img src="art/eroi/${c}_art.jpg" alt=""><b>${esc(HEROES[c].n)}</b></button>`).join('')}</div>
       <div class="shpacks">${C.packs.map(k=>`<button class="btn shpq" data-id="${k.id}">${esc(k.n)} · ${eurTxt(k.eur)}</button>`).join('')}</div>
       ${ACC()&&Object.keys(o.cpacks||{}).length?`<div class="note" style="text-align:left;max-width:none">Hai pacchetti di classe da aprire: li trovi in <b>Pacchetti</b>.</div>`:''}</div></div>`;
     let cls=SHOP.cls||chosenCls, pid=null;
-    const upd=()=>{ app.querySelectorAll('.shc').forEach(b=>b.classList.toggle('on',b.dataset.c===cls)); app.querySelectorAll('.shpq').forEach(b=>b.classList.toggle('on',b.dataset.id===pid));
+    const upd=()=>{ const pl=app.querySelector('.shpkl'); if(pl) pl.innerHTML=packArt(true,cls); app.querySelectorAll('.shc').forEach(b=>b.classList.toggle('on',b.dataset.c===cls)); app.querySelectorAll('.shpq').forEach(b=>b.classList.toggle('on',b.dataset.id===pid));
       if(pid){ const k=C.packs.find(x=>x.id===pid); shopPay({kind:'pack',id:pid,cls},`${k.n} — ${HEROES[cls].n}`,eurTxt(k.eur),S); } };
     app.querySelectorAll('.shc').forEach(b=>b.onclick=()=>{ cls=SHOP.cls=b.dataset.c; upd(); });
     app.querySelectorAll('.shpq').forEach(b=>b.onclick=()=>{ pid=b.dataset.id; upd(); });
@@ -421,7 +421,7 @@ async function shopPay(item,label,price,S){
 }
 // pacchetti di classe comprati: si aprono dalla schermata Pacchetti
 async function openClassPackAnim(cls){ const r=await econDo('openClassPack',{cls}); if(!r) return; sfx('rip'); bonusToast(r.res.bonus); toast(`+${r.res.adam} ${ADAM}`);
-  revealCards(r.res.cards.map(x=>Object.assign({},x,{extra:x.adam})),{pack:true,after:()=>packsScreen()}); }
+  revealCards(r.res.cards.map(x=>Object.assign({},x,{extra:x.adam})),{pack:true,packCls:cls,after:()=>packsScreen()}); }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bShop'); if(!b) return; e.preventDefault(); shopScreen(); });
 
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
@@ -568,18 +568,46 @@ const RULES=[
 let GLQ='';
 function glossary(){
   const all={...KW_DESC,...KW_POP}; const q=GLQ.toLowerCase(); const hit=(k,t)=>!q||(k+' '+t).toLowerCase().includes(q);
-  const item=(k,t,extra)=>`<div class="gitem"><div class="gk">${KW_ICON[k]?`<i>${KW_ICON[k]}</i>`:''}<b>${esc(k)}</b>${extra||''}</div><div class="gt">${kwHtml(t)}</div></div>`;
+  // testo con <b> ammesso (alcune regole lo usano), il resto come prima
+  const txt=t=>kwHtml(t).replace(/&lt;(\/?)b&gt;/g,'<$1b>');
+  const RULE_ICON={'Vittoria':'🏆','GRA':`<img src="art/gra_oro.svg" alt="">`,'Mano iniziale':'🂠','Mano massima':'✋','Tavolo':'▦','Pegno':'🔒',"Slot d'Emozione":'❖','Focus':'◎','Sconto di recupero':'↺','Mutazione':'🧬','Nebbia':'🌫','Limiti':'⛔','Ondata di Nebbia':'🌊','Potere eroe':'⚡','Dominio':'🏰','Tipi di carta':'🃏','Rarità':'💎','Tribù':'⚑'};
+  const RULE_GROUP=[['Le basi',['Vittoria','GRA','Mano iniziale','Mano massima','Tavolo','Tipi di carta','Rarità','Tribù']],['Meccaniche',['Potere eroe','Pegno',"Slot d'Emozione",'Focus','Sconto di recupero','Dominio','Mutazione']],['Nebbia e limiti',['Nebbia','Ondata di Nebbia','Limiti']]];
+  // a quale classe appartiene un termine: quella che lo usa in almeno il 70% delle sue carte
+  const termCls=k=>{ const cnt={}; let tot=0; for(const c of Object.values(CARDS)){ if(c.cl==='neutrali'||!(c.x||'').includes(k)) continue; cnt[c.cl]=(cnt[c.cl]||0)+1; tot++; }
+    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]; return top&&tot>=2&&top[1]/tot>=0.7?top[0]:null; };
+  const item=(k,t,o)=>{ o=o||{}; const ic=o.icon!=null?o.icon:(KW_ICON[k]||''); return `<div class="gitem ${o.cls?'gc':''}" ${o.cls?`style="--gc:${CLS_COLOR[o.cls]}"`:''}><div class="gk">${ic?`<i class="gic">${ic}</i>`:''}<b>${esc(k)}</b>${o.extra||''}</div><div class="gt">${txt(t)}</div></div>`; };
+  const sec=(id,t,sub,body)=>body?`<section class="gsec" id="${id}"><h3>${t}</h3>${sub?`<div class="gsub">${sub}</div>`:''}${body}</section>`:'';
+  // 1) regole, divise in gruppi
+  const rmap=Object.fromEntries(RULES); const used=new Set();
+  const rules=RULE_GROUP.map(([g,ks])=>{ const arr=ks.filter(k=>rmap[k]&&hit(k,rmap[k])).map(k=>{ used.add(k); return item(k,rmap[k],{icon:RULE_ICON[k]||'•'}); }); return arr.length?`<h4 class="ggr">${g}</h4><div class="ggrid">${arr.join('')}</div>`:''; }).join('')
+    +(()=>{ const rest=RULES.filter(([k,t])=>!used.has(k)&&hit(k,t)).map(([k,t])=>item(k,t,{icon:'•'})); return rest.length?`<div class="ggrid">${rest.join('')}</div>`:''; })();
+  // 2) parole chiave comuni a tutti
   const univ=KW_UNIV.filter(k=>all[k]&&hit(k,all[k])).map(k=>item(k,all[k]));
-  const cls=Object.entries(KW_CLASS).filter(([k])=>all[k]&&hit(k,all[k])).map(([k,c])=>item(k,all[k],`<span class="gcl" style="--uc:${CLS_COLOR[c]}">${c==='neutrali'?'<b class="nz">◆</b>':`<img src="art/simboli/${c}.svg" alt="">`}${esc(CLASSES[c].short||CLASSES[c].name)}</span>`));
-  const other=Object.keys(all).filter(k=>!KW_UNIV.includes(k)&&!KW_CLASS[k]&&!['Pietrificare','Muta','Stelle','Uova di Magga e Decreti','Incanto','Rituale','Dominio','Maledizione','Mutazione'].includes(k)&&hit(k,all[k])).sort((a,b)=>a.localeCompare(b,'it')).map(k=>item(k,all[k]));
-  const rules=RULES.filter(([k,t])=>hit(k,t)).map(([k,t])=>item(k,t));
-  const sec=(t,arr)=>arr.length?`<section class="gsec"><h3>${t}</h3><div class="ggrid">${arr.join('')}</div></section>`:'';
+  // 3) le classi: parola chiave di classe, bonus dell'Emozione e termini tipici, nel colore della classe
+  const skip=['Pietrificare','Muta','Stelle','Uova di Magga e Decreti','Incanto','Rituale','Dominio','Maledizione','Mutazione'];
+  const others=Object.keys(all).filter(k=>!KW_UNIV.includes(k)&&!KW_CLASS[k]&&!skip.includes(k));
+  const byCls={}; const free=[];
+  for(const k of others){ const c=termCls(k); if(c) (byCls[c]=byCls[c]||[]).push(k); else free.push(k); }
+  const clsPanels=[...ALL_CLS,'neutrali'].map(c=>{
+    const kws=Object.entries(KW_CLASS).filter(([k,cl])=>cl===c&&all[k]&&hit(k,all[k])).map(([k])=>item(k,all[k],{cls:c,icon:KW_ICON[k]||'✦'}));
+    const emo=c!=='neutrali'&&EMO_TXT[c]&&hit("Emozione "+HEROES[c].e,EMO_TXT[c])?item('Emozione: '+HEROES[c].e,(c==='scudiera'?'':'Un seguace della classe giocato in uno slot d\'Emozione ')+EMO_TXT[c],{cls:c,icon:'❖'}):'';
+    const terms=(byCls[c]||[]).filter(k=>hit(k,all[k])).sort((a,b)=>a.localeCompare(b,'it')).map(k=>item(k,all[k],{cls:c,icon:KW_ICON[k]||'✧'}));
+    if(!kws.length&&!emo&&!terms.length) return '';
+    const head=c==='neutrali'?`<span class="gch"><b class="nz">◆</b></span><div><b>Neutrali</b><small>Carte di tutte le classi</small></div>`:`<span class="gch"><img src="art/simboli/${c}.svg" alt=""></span><div><b>${esc(HEROES[c].n)}</b><small>${esc(CLASSES[c].region||'')} · Emozione: ${esc(HEROES[c].e)}</small></div>`;
+    return `<div class="gcls" style="--uc:${CLS_COLOR[c]}"><div class="gclh">${head}</div><div class="ggrid">${kws.join('')}${emo}${terms.join('')}</div></div>`; }).join('');
+  const other=free.filter(k=>hit(k,all[k])).sort((a,b)=>a.localeCompare(b,'it')).map(k=>item(k,all[k]));
   const prevScroll=($('.coll')||{}).scrollTop||0;
+  const nav=[['g-reg','📜 Regole'],['g-kw','✦ Parole chiave'],['g-cls','⚔ Classi'],['g-alt','📖 Altri termini']];
   app.innerHTML=`<div class="coll glos"><div class="chead"><button class="btn sm" id="gBack">‹ Menu</button><h2>Glossario</h2><input id="gQ" placeholder="Cerca una parola o una regola…" value="${esc(GLQ)}"></div>
-    ${sec('Regole del gioco',rules)}${sec('Parole chiave',univ)}${sec('Parole chiave di classe',cls)}${sec('Termini delle carte',other)}
-    ${!rules.length&&!univ.length&&!cls.length&&!other.length?'<div class="note">Nessun risultato.</div>':''}</div>`;
+    <nav class="gnav">${nav.map(([id,t])=>`<button class="gnb" data-g="${id}">${t}</button>`).join('')}</nav>
+    ${sec('g-reg','Regole del gioco','',rules)}
+    ${sec('g-kw','Parole chiave','Valgono per tutte le classi.',univ.length?`<div class="ggrid">${univ.join('')}</div>`:'')}
+    ${sec('g-cls','Le classi','Parole chiave, bonus dell\'Emozione e termini tipici di ogni classe, nel suo colore.',clsPanels)}
+    ${sec('g-alt','Altri termini delle carte','',other.length?`<div class="ggrid">${other.join('')}</div>`:'')}
+    ${!rules&&!univ.length&&!clsPanels&&!other.length?'<div class="note">Nessun risultato.</div>':''}</div>`;
   { const cl=$('.coll'); if(cl) cl.scrollTop=prevScroll; }
   $('#gBack').onclick=()=>menu();
+  app.querySelectorAll('.gnb').forEach(b=>b.onclick=()=>{ const t=document.getElementById(b.dataset.g); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); });
   let qt=null; $('#gQ').oninput=e=>{ clearTimeout(qt); const v=e.target.value; qt=setTimeout(()=>{ GLQ=v; glossary(); const f=$('#gQ'); f.focus(); f.setSelectionRange(v.length,v.length); },200); };
 }
 
@@ -811,7 +839,18 @@ function rewardHtml(){ const r=G&&G.__rew; if(!r) return '';
   if(r.pending) return `<div class="endrew wait">⏳ Il server sta verificando il premio…</div>`;
   if(r.cap) return `<div class="endrew off">Premio giornaliero esaurito: domani altre partite premiate · hai ${ownLoad().coins} ${GI}</div>`;
   return `<div class="endrew">${GI} <b>+${r.got} GRA</b> per la ${r.win?'vittoria':'sconfitta'} · ora ne hai ${ownLoad().coins}</div>`; }
-function packArt(big){ return `<div class="pack ${big?'big':''}"><div class="pk-in"><div class="pk-top"></div><div class="pk-emb"><img src="art/gra_oro.svg" alt=""></div><div class="pk-t">ELGRAVION</div><div class="pk-s">Primo Set · 5 carte</div></div></div>`; }
+function packArt(big,cls){
+  const cc=cls&&CLS_COLOR[cls]?` style="--pc:${CLS_COLOR[cls]}"`:'';
+  const corner=`<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M3 37V12Q3 3 12 3h25" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 37V15q0-7 7-7h22" fill="none" stroke="currentColor" stroke-width="1" opacity=".6"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>`;
+  const orn=`<svg class="pk-orn" viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="currentColor"><path d="M60 6 114 60 60 114 6 60Z" stroke-width="2"/><path d="M60 20 100 60 60 100 20 60Z" stroke-width="1" opacity=".7"/><circle cx="60" cy="60" r="26" stroke-width="1.5"/><circle cx="60" cy="60" r="31" stroke-width=".8" opacity=".6" stroke-dasharray="2 4"/><path d="M60 34v52M34 60h52" stroke-width=".8" opacity=".5"/></g>${cls?`<image href="art/simboli/${cls}.svg" x="40" y="40" width="40" height="40"/>`:`<path d="M60 44l5 11 11 5-11 5-5 11-5-11-11-5 11-5z" fill="currentColor"/>`}</svg>`;
+  return `<div class="pack ${big?'big':''} ${cls?'pcls':''}"${cc}><div class="pk-in">
+    <div class="pk-top"></div><div class="pk-frame"></div>
+    ${['tl','tr','bl','br'].map(p=>`<i class="pk-c ${p}">${corner}</i>`).join('')}
+    ${orn}
+    <div class="pk-t"><span class="tw">ELGRAVI</span><img class="pk-coin" src="art/gra_oro.svg" alt="O"><span class="tw">N</span></div>
+    <div class="pk-rule"><i></i><b>✦</b><i></i></div>
+    <div class="pk-s">${cls?esc(HEROES[cls].n):'Primo Set'}<small>5 carte</small></div>
+    <div class="pk-bot"></div></div></div>`; }
 function packsScreen(){
   G=null; NET&&NET.leave&&NET.leave(); NET=null; closeModal(); const o=ownLoad();
   const all=collectible(); const have=all.filter(c=>owned(c.n)>0).length;
@@ -842,7 +881,7 @@ async function openPackAnim(){
 }
 function revealCards(res,opt){
   opt=opt||{};
-  const d=modal(`<div class="pkopen">${opt.title?`<h3 class="pktitle">${esc(opt.title)}</h3>`:''}${opt.pack?packArt(true):''}<div class="pkcards ${res.length>6?'many':''}"></div><div class="row pkbtns"></div></div>`,'pkbox'); d.dataset.lock=1;
+  const d=modal(`<div class="pkopen">${opt.title?`<h3 class="pktitle">${esc(opt.title)}</h3>`:''}${opt.pack?packArt(true,opt.packCls):''}<div class="pkcards ${res.length>6?'many':''}"></div><div class="row pkbtns"></div></div>`,'pkbox'); d.dataset.lock=1;
   const box=d.querySelector('.pkopen'); const pk=box.querySelector('.pack');
   if(pk) pk.classList.add('shake');
   setTimeout(()=>{ if(pk){ pk.classList.add('burst'); sfx('burst'); setTimeout(()=>pk.remove(),460); }
@@ -1101,7 +1140,7 @@ function attackNudge(e){
 }
 function turnBanner(){
   if(!G||G.over||G.phase!=='play'||G.cur!==me||G.pending.some(p=>p.p===me&&p.type==='mulligan')) return;
-  if(G.__banner===G.turn) return; G.__banner=G.turn;
+  if(G.over||G.__banner===G.turn) return; G.__banner=G.turn;
   document.querySelectorAll('.turnban').forEach(x=>x.remove());
   sfx('turn'); const d=document.createElement('div'); d.className='turnban'; d.innerHTML='<div><b>Il tuo turno</b></div>';
   document.body.appendChild(d); setTimeout(()=>d.remove(), window.FAST?200:1500);
@@ -1649,7 +1688,7 @@ function endScreenHtml(win){
   return `<div class="endfx"><div class="endrays"></div>
     <div class="endhero"><img src="${hero}" alt=""></div>
     <h2 class="endtitle">${win?'Vittoria':'Sconfitta'}</h2>
-    <div class="endsub">${esc(G.log[G.log.length-1]||'')}</div>
+    <div class="endsub">${esc((G.log[G.log.length-1]||'').replace(/^Tu si arrende\.$/,'Ti sei arreso.'))}</div>
     <div class="endstats"><div><b>${dmg}</b><small>danni inflitti</small></div><div><b>${kills}</b><small>seguaci uccisi</small></div><div><b>${plays}</b><small>carte giocate</small></div><div><b>${p.ownTurns}</b><small>turni</small></div></div>
     ${mv?`<div class="endmvp"><div class="mvplab">✦ Carta MVP ✦</div><div class="mvpcard" data-mvp="${esc(mv.n)}">${colCard(CARDS[mv.n],'')}</div><div class="mvpinfo">${mv.d} danni · ${mv.k} ${mv.k===1?'uccisione':'uccisioni'}</div></div>`:''}
     ${rewardHtml()}${rankEndHtml()}${G.abandon?'<div class="note" style="margin:6px auto 0">L\'avversario ha abbandonato la partita.</div>':''}
@@ -1661,7 +1700,7 @@ function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
   if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; const x=srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; G.__rankRes=x; } } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
-    const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
+    clearFx(); const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};
     d.querySelectorAll('[data-mvp]').forEach(e=>e.onclick=()=>{ const c=CARDS[e.dataset.mvp]; if(c) modal(`${bigCard(c)}<div class="row" style="margin-top:10px"><button class="btn" id="mBackEnd">Indietro</button></div>`); const bb=$('#mBackEnd'); if(bb) bb.onclick=()=>{ closeModal(); overlays(); }; });
@@ -1714,14 +1753,16 @@ function overlays(){
 
 // carta giocata dall'avversario mostrata al centro per un attimo
 const revealQ=[]; let revealOn=false;
-function reveal(c,label,html){ revealQ.push({c,label,html}); if(!revealOn) nextReveal(); }
+function reveal(c,label,html){ if(G&&G.over) return; revealQ.push({c,label,html}); if(!revealOn) nextReveal(); }
+// a fine partita spariscono tutti gli avvisi di gioco: niente finestre sovrapposte al risultato
+function clearFx(){ revealQ.length=0; revealOn=false; document.querySelectorAll('.emoban,.turnban,.reveal,.fogwave,.prompt,.kwfx,.mutban,.peek').forEach(x=>x.remove()); }
 function nextReveal(){
-  const r=revealQ.shift(); if(!r){ revealOn=false; return; } revealOn=true;
+  const r=revealQ.shift(); if(!r||(G&&G.over)){ revealOn=false; revealQ.length=0; return; } revealOn=true;
   const d=document.createElement('div'); d.className='reveal'; d.innerHTML=`<div class="rl">${esc(r.label)}</div>${r.html||bigCard(r.c)}`; document.body.appendChild(d);
   const ms=window.FAST?200:1600; setTimeout(()=>{ d.classList.add('out'); setTimeout(()=>{ d.remove(); nextReveal(); },250); },ms);
 }
 // ======================= ONDATA DI NEBBIA (turni 10 e 20)
-function fogFx(){ sfx('lasc'); const d=document.createElement('div'); d.className='fogwave'; d.innerHTML=`<div class="fogtxt"><b>La Nebbia avanza</b><small>2 danni a tutti i seguaci · ogni giocatore pesca una carta${G&&(G.fogN||0)===1?' (chi gioca per secondo ne pesca due)':''} · i seguaci pescati otterranno Mutare</small></div>`; document.body.appendChild(d); setTimeout(()=>d.remove(), window.FAST?300:4000); }
+function fogFx(){ if(G&&G.over) return; sfx('lasc'); const d=document.createElement('div'); d.className='fogwave'; d.innerHTML=`<div class="fogtxt"><b>La Nebbia avanza</b><small>2 danni a tutti i seguaci · ogni giocatore pesca una carta${G&&(G.fogN||0)===1?' (chi gioca per secondo ne pesca due)':''} · i seguaci pescati otterranno Mutare</small></div>`; document.body.appendChild(d); setTimeout(()=>d.remove(), window.FAST?300:4000); }
 // turni di partita che mancano all'ondata: arriva al 10°, 20°… turno del giocatore che ha iniziato (turno di partita 19, 39, 59…)
 function fogLeft(){ if(!G) return null; const step=E.FOG_EVERY*2; let n=step-1; while(n<G.turn) n+=step; return n-G.turn; }
 function fogCounter(){ const k=fogLeft(); if(k==null) return '';
