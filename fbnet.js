@@ -139,6 +139,11 @@
     await needUser(); const f = (await functionsApi()).httpsCallable('economia', { timeout: 70000 });
     const r = await f(Object.assign({ op }, clean(data) || {})); return r.data;
   }
+  async function shop(op, data){
+    await init(); if (op !== 'catalogo') await needUser();
+    const f = (await functionsApi()).httpsCallable('negozio', { timeout: 70000 });
+    const r = await f(Object.assign({ op }, clean(data) || {})); return r.data;
+  }
   const decks = {
     async get(){ const u = await currentUser(); if (!u) return null; const s = await firebase.database().ref('decks/' + u.uid).once('value'); return s.val(); },
     async set(d){ const u = await currentUser(); if (!u) return; await firebase.database().ref('decks/' + u.uid).set(clean(d)); }
@@ -156,7 +161,7 @@
   window.ELG_NET = {
     online: true,
     // la Classificata fuori da claude.ai si accende solo quando l'arbitro sul server è pronto
-    get ranked(){ return rankedFlag; }, get econOn(){ return econFlag; }, checkRanked, rk, econ, decks,
+    get ranked(){ return rankedFlag; }, get econOn(){ return econFlag; }, checkRanked, rk, econ, shop, decks,
     async use(kind){ await init(); return kind === 'room' ? roomApi : kind === 'db' ? dbApi : kind === 'user' ? userApi : null; },
     signIn, currentUser,
     async signOut(){ await init(); await firebase.auth().signOut(); }

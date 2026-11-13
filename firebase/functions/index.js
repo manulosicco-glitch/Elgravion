@@ -12,6 +12,7 @@ const { arbitrate } = require('./arbiter.js');
 const { verifyAi } = require('./aigame.js');
 const R = require('./rank.js');
 const ECON = require('./economy.js');
+const SHOP = require('./shop.js');
 
 // Regole e carte: il server le legge dal gioco pubblicato, così carte nuove, modifiche e ampliamenti
 // valgono subito anche qui senza ripubblicare le funzioni. Se il sito non risponde usa la copia interna.
@@ -98,7 +99,8 @@ exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60
     case 'starter': { const r = await withProfile(uid, p => X.starter(p, String(d.cls || ''), rnd)); return r; }
     case 'buyPack': return withProfile(uid, p => X.buyPack(p));
     case 'openPack': return withProfile(uid, p => X.openPack(p, rnd));
-    case 'craft': return withProfile(uid, p => X.craft(p, String(d.n || '')));
+    case 'craft': return withProfile(uid, p => X.craft(p, String(d.n || ''), d.cur === 'adam' ? 'adam' : 'gra'));
+    case 'openClassPack': return withProfile(uid, p => X.openClassPack(p, String(d.cls || ''), rnd, SHOP.CLASS_PACK));
     case 'sell': return withProfile(uid, p => X.sell(p, String(d.n || '')));
     case 'claimAi': {
       const rec = d.rec; const raw = JSON.stringify(rec || null);
@@ -167,4 +169,50 @@ exports.arbitro = onValueWritten({ ref: '/ranked/{room}/end/{uid}', region: REGI
   }
   await base.child('result').set(result);
   await db().ref('rooms/' + room).remove().catch(() => {});
+});
+
+// ---------- negozio (PayPal) ----------
+// Le chiavi di PayPal stanno nel database in secret/paypal = {clientId, secret, mode:'sandbox'|'live'},
+// leggibili solo dal server. Finché mancano, il negozio si mostra ma i pagamenti restano spenti.
+async function paypalCfg(){ const s = await db().ref('secret/paypal').once('value'); const c = s.val(); return c && c.clientId && c.secret ? c : null; }
+const ppBase = c => c.mode === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+async function ppToken(c){
+  const r = await fetch(ppBase(c) + '/v1/oauth2/token', { method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(c.clientId + ':' + c.secret).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=client_credentials', signal: AbortSignal.timeout(15000) });
+  const j = await r.json(); if (!j.access_token) throw new HttpsError('unavailable', 'PayPal non risponde.'); return j.access_token;
+}
+async function ppCall(c, path, body){
+  const t = await ppToken(c);
+  const r = await fetch(ppBase(c) + path, { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(20000) });
+  return r.json();
+}
+exports.negozio = onCall({ region: REGION, memory: '256MiB', timeoutSeconds: 60 }, async (req) => {
+  const d = req.data || {}, op = d.op;
+  if (op === 'catalogo') { const c = await paypalCfg().catch(() => null); return { active: !!c, clientId: c ? c.clientId : null, mode: c ? (c.mode || 'sandbox') : null, catalog: SHOP.CATALOG, currency: SHOP.CURRENCY_NAME, classPack: SHOP.CLASS_PACK }; }
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Accedi con Google.');
+  const uid = req.auth.uid; const c = await paypalCfg(); if (!c) throw new HttpsError('failed-precondition', 'I pagamenti non sono ancora attivi.');
+  if (op === 'ordine') {
+    const o = SHOP.priceOf(d.item); if (!o) throw new HttpsError('invalid-argument', 'Articolo non valido.');
+    if (o.kind === 'cosm') { const p = (await db().ref('profiles/' + uid).once('value')).val() || {}; const have = Array.isArray(p.cosm) ? p.cosm : Object.values(p.cosm || {}); if (have.includes(o.id)) throw new HttpsError('already-exists', 'Lo possiedi già.'); }
+    const pp = await ppCall(c, '/v2/checkout/orders', { intent: 'CAPTURE', purchase_units: [{ amount: { currency_code: 'EUR', value: o.eur }, description: o.desc.slice(0, 120), custom_id: uid }], application_context: { brand_name: 'Elgravion', shipping_preference: 'NO_SHIPPING', user_action: 'PAY_NOW' } });
+    if (!pp.id) { logger.error('ordine PayPal', pp); throw new HttpsError('unavailable', 'Ordine non creato.'); }
+    await db().ref('orders/' + pp.id).set(Object.assign({ uid, status: 'creato', t: Date.now(), mode: c.mode || 'sandbox' }, o));
+    return { id: pp.id };
+  }
+  if (op === 'conferma') {
+    const id = String(d.id || ''); const ref = db().ref('orders/' + id); const o = (await ref.once('value')).val();
+    if (!o || o.uid !== uid) throw new HttpsError('not-found', 'Ordine sconosciuto.');
+    if (o.status === 'consegnato') return { profile: (await db().ref('profiles/' + uid).once('value')).val(), order: o };
+    const cap = await ppCall(c, '/v2/checkout/orders/' + encodeURIComponent(id) + '/capture');
+    const pu = cap && cap.purchase_units && cap.purchase_units[0]; const cp = pu && pu.payments && pu.payments.captures && pu.payments.captures[0];
+    const ok = cap && cap.status === 'COMPLETED' && cp && cp.amount && cp.amount.currency_code === 'EUR' && cp.amount.value === o.eur;
+    if (!ok) { await ref.update({ status: 'non pagato', t2: Date.now() }); logger.warn('cattura non riuscita', id, cap && cap.status); throw new HttpsError('failed-precondition', 'Pagamento non completato.'); }
+    // consegna una volta sola
+    const lock = await ref.child('status').transaction(st => st === 'consegnato' ? undefined : 'consegnato');
+    if (!lock.committed) return { profile: (await db().ref('profiles/' + uid).once('value')).val(), order: o };
+    await ref.update({ capture: cp.id, t2: Date.now() });
+    if (o.kind === 'dono') await db().ref('donations/' + uid + '/' + id).set({ eur: o.eur, t: Date.now() });
+    const r = await withProfile(uid, p => { SHOP.grant(p, o); return {}; }, { create: true });
+    return { profile: r.profile, order: Object.assign({}, o, { status: 'consegnato' }) };
+  }
+  throw new HttpsError('invalid-argument', 'Operazione sconosciuta.');
 });

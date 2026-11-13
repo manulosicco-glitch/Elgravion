@@ -344,10 +344,86 @@ document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closes
   const en=window.LANG==='en';
   modal(`<h3>${en?'Language':'Lingua'}</h3><div class="row langrow"><button class="btn ${!en?'on':''}" id="lgIt">🇮🇹 Italiano</button><button class="btn ${en?'on':''}" id="lgEn">🇬🇧 English</button></div>`);
   $('#lgIt').onclick=()=>window.setLang('it'); $('#lgEn').onclick=()=>window.setLang('en'); });
-document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bShop'); if(!b) return; e.preventDefault();
-  const items=[['🂠','Dorsi delle carte','Retri esclusivi per le tue carte in partita.'],['🖼','Cornici dell\'eroe','Bordi speciali per il ritratto del tuo eroe.'],['💍','Anelli del potere eroe','Versioni preziose dell\'anello della tua classe.'],['✦','Pacchetto sostenitore','Un insieme di oggetti estetici per chi sostiene il gioco.']];
-  modal(`<h3>Negozio</h3><div class="note" style="margin:0 auto 12px">Il negozio apre presto. Conterrà solo oggetti estetici: nessuna carta, nessun vantaggio in partita.</div><div class="shoplist">${items.map(([i,n,d])=>`<div class="shopit"><span class="si">${i}</span><div><b>${n}</b><small>${d}</small></div><span class="soon">Presto</span></div>`).join('')}</div><div class="row"><button class="btn" id="shOk">Chiudi</button></div>`);
-  $('#shOk').onclick=closeModal; });
+// ======================= NEGOZIO: sostieni il gioco, personalizzazione, pacchetti di classe
+// Prezzi e consegne li decide il server; il pagamento passa da PayPal. Finché PayPal non è collegato, il negozio si mostra in anteprima.
+const ADAM='Adamantio', AI_='<span class="ai">◆</span>';
+let SHOP=null, SHOP_TAB='dono', PP_SDK=null;
+async function shopCall(op,data){ return window.ELG_NET.shop(op,data); }
+async function shopLoad(){ if(SHOP&&Date.now()-SHOP.t<300000) return SHOP;
+  try{ const c=await shopCall('catalogo'); SHOP=Object.assign({t:Date.now()},c); }catch(e){ SHOP={t:Date.now(),active:false,catalog:null,err:true}; } return SHOP; }
+function loadPayPal(clientId){ if(PP_SDK) return PP_SDK;
+  PP_SDK=new Promise((res,rej)=>{ const s=document.createElement('script'); s.src='https://www.paypal.com/sdk/js?client-id='+encodeURIComponent(clientId)+'&currency=EUR&intent=capture&components=buttons'; s.onload=()=>res(window.paypal); s.onerror=()=>{ PP_SDK=null; rej(new Error('PayPal')); }; document.head.appendChild(s); });
+  return PP_SDK; }
+const eurTxt=v=>Number(v).toFixed(2).replace('.',',')+' €';
+function shopReady(){ return !window.claude && !!(window.ELG_NET&&window.ELG_NET.shop); }
+async function shopScreen(tab){
+  if(tab) SHOP_TAB=tab; G=null; NET&&NET.leave&&NET.leave(); NET=null; closeModal();
+  if(!shopReady()){ modal(`<h3>Negozio</h3><div class="note" style="margin:0 auto 12px">Il negozio è disponibile nella versione online del gioco, con l'accesso Google.</div><div class="row"><button class="btn" id="shOk">Chiudi</button></div>`); $('#shOk').onclick=closeModal; return; }
+  app.innerHTML=`<div class="coll shop"><div class="chead"><button class="btn sm" id="cBack">‹ Menu</button><h2>Negozio</h2><span class="pill coin">${GI} ${ownLoad().coins}</span>${ACC()?`<span class="pill adam" title="${ADAM}: serve solo a creare carte">${AI_} ${ownLoad().adam|0}</span>`:''}</div>
+    <div class="shtabs"><button class="shtab" data-t="dono">❤ Sostieni il gioco</button><button class="shtab" data-t="cosm">✦ Personalizzazione</button><button class="shtab" data-t="pack">🎴 Pacchetti di classe</button></div>
+    <div class="shbody" id="shBody"><div class="note">Carico il negozio…</div></div><div class="shpay" id="shPay"></div></div>`;
+  $('#cBack').onclick=()=>menu();
+  app.querySelectorAll('.shtab').forEach(b=>{ b.classList.toggle('on',b.dataset.t===SHOP_TAB); b.onclick=()=>shopScreen(b.dataset.t); });
+  const S=await shopLoad(); const body=$('#shBody'); if(!body) return;
+  if(!S.catalog){ body.innerHTML='<div class="note">Il negozio non risponde: riprova tra poco.</div>'; return; }
+  const C=S.catalog, o=ownLoad(), have=new Set(o.cosm||[]);
+  const banner=!S.active?`<div class="shnote">🛠 Anteprima: i pagamenti con PayPal non sono ancora collegati. Prezzi e contenuti potrebbero cambiare.</div>`:(!ACC()?`<div class="shnote">Per acquistare accedi con Google (pulsante 🔑 nel menu): quello che compri resta sul tuo account.</div>`:'');
+  if(SHOP_TAB==='dono'){
+    body.innerHTML=`${banner}<div class="shdono"><h3>Sostieni Elgravion</h3><div class="note">Elgravion è un progetto indipendente. Una donazione aiuta a pagare il server e a creare nuove carte. Non dà vantaggi in partita: è solo un grazie.</div>
+      <div class="shamts">${C.dono.suggest.map(v=>`<button class="btn shamt" data-a="${v}">${eurTxt(v)}</button>`).join('')}<label class="shfree">Altro: <input id="shAmt" type="number" min="${C.dono.min}" max="${C.dono.max}" step="1" placeholder="€"></label></div></div>`;
+    const pick=v=>{ app.querySelectorAll('.shamt').forEach(b=>b.classList.toggle('on',+b.dataset.a===v)); shopPay({kind:'dono',amount:v},`Donazione di ${eurTxt(v)}`,eurTxt(v),S); };
+    app.querySelectorAll('.shamt').forEach(b=>b.onclick=()=>pick(+b.dataset.a));
+    const inp=$('#shAmt'); inp.onchange=()=>{ const v=Math.round(+inp.value); if(v>=C.dono.min&&v<=C.dono.max) pick(v); else toast(`Importo tra ${C.dono.min} e ${C.dono.max} €`); };
+  }
+  if(SHOP_TAB==='cosm'){
+    const card=it=>{ const own=have.has(it.id), on=SET[it.k]===it.id;
+      const prev=it.k==='back'?`<div class="cpv back ${it.id}"></div>`:`<div class="cpvh hero ${it.id}"><img src="art/eroi/${chosenCls}_art.jpg" alt=""></div>`;
+      return `<div class="shitem ${own?'own':''}">${prev}<b>${esc(it.n)}</b><small>${it.k==='back'?'Dorso delle carte: lo vede l\'avversario':'Cornice del tuo eroe'}</small>
+        ${own?`<button class="btn sm shuse" data-k="${it.k}" data-id="${it.id}">${on?'✓ In uso':'Usa'}</button>`:`<button class="btn sm shbuy" data-id="${it.id}">${eurTxt(it.eur)}</button>`}</div>`; };
+    body.innerHTML=`${banner}<h3>Dorsi delle carte</h3><div class="shgrid">${C.cosm.filter(x=>x.k==='back').map(card).join('')}</div>
+      <h3>Cornici dell'eroe</h3><div class="shgrid">${C.cosm.filter(x=>x.k==='frame').map(card).join('')}</div>
+      <div class="note">Solo estetica: nessun vantaggio in partita. Gli oggetti comprati restano sul tuo account.</div>`;
+    app.querySelectorAll('.shuse').forEach(b=>b.onclick=()=>{ const k=b.dataset.k; SET[k]=SET[k]===b.dataset.id?null:b.dataset.id; saveSet&&saveSet(); shopScreen(); });
+    app.querySelectorAll('.shbuy').forEach(b=>b.onclick=()=>{ const it=C.cosm.find(x=>x.id===b.dataset.id); app.querySelectorAll('.shbuy').forEach(x=>x.classList.toggle('on',x===b)); shopPay({kind:'cosm',id:it.id},it.n,eurTxt(it.eur),S); });
+  }
+  if(SHOP_TAB==='pack'){
+    const cp=S.classPack||{size:5,adam:50};
+    body.innerHTML=`${banner}<div class="shpk"><div class="shpkl">${packArt(true)}</div><div><h3>Pacchetti di classe</h3>
+      <div class="note" style="text-align:left;max-width:none">Ogni pacchetto contiene <b>${cp.size} carte della classe che scegli</b> (l'ultima almeno Rara) e <b>${cp.adam} ${ADAM}</b> ${AI_}. L'${ADAM} serve <b>solo a creare carte</b>: non si spende in altro. I doppioni oltre il massimo di copie diventano ${ADAM}.</div>
+      <div class="shcls">${ALL_CLS.map(c=>`<button class="shc" data-c="${c}" style="--uc:${CLS_COLOR[c]}"><img src="art/eroi/${c}_art.jpg" alt=""><b>${esc(HEROES[c].n)}</b></button>`).join('')}</div>
+      <div class="shpacks">${C.packs.map(k=>`<button class="btn shpq" data-id="${k.id}">${esc(k.n)} · ${eurTxt(k.eur)}</button>`).join('')}</div>
+      ${ACC()&&Object.keys(o.cpacks||{}).length?`<div class="note" style="text-align:left;max-width:none">Hai pacchetti di classe da aprire: li trovi in <b>Pacchetti</b>.</div>`:''}</div></div>`;
+    let cls=SHOP.cls||chosenCls, pid=null;
+    const upd=()=>{ app.querySelectorAll('.shc').forEach(b=>b.classList.toggle('on',b.dataset.c===cls)); app.querySelectorAll('.shpq').forEach(b=>b.classList.toggle('on',b.dataset.id===pid));
+      if(pid){ const k=C.packs.find(x=>x.id===pid); shopPay({kind:'pack',id:pid,cls},`${k.n} — ${HEROES[cls].n}`,eurTxt(k.eur),S); } };
+    app.querySelectorAll('.shc').forEach(b=>b.onclick=()=>{ cls=SHOP.cls=b.dataset.c; upd(); });
+    app.querySelectorAll('.shpq').forEach(b=>b.onclick=()=>{ pid=b.dataset.id; upd(); });
+    upd();
+  }
+}
+// riquadro di pagamento con i pulsanti PayPal per l'articolo scelto
+async function shopPay(item,label,price,S){
+  const box=$('#shPay'); if(!box) return;
+  box.innerHTML=`<div class="shsum"><span>${esc(label)}</span><b>${price}</b></div><div id="ppBtns" class="ppbtns"></div><div class="note shfoot">Pagamento sicuro con PayPal (anche con carta). Nessun dato di pagamento passa dal gioco.</div>`;
+  const pb=$('#ppBtns');
+  if(!S.active){ pb.innerHTML=`<button class="btn" disabled>Pagamenti in arrivo</button>`; return; }
+  if(!ACC()){ pb.innerHTML=`<button class="btn" id="shLog">🔑 Accedi con Google per acquistare</button>`; $('#shLog').onclick=()=>{ const b=document.createElement('button'); b.id='bAcct'; document.body.appendChild(b); b.click(); b.remove(); }; return; }
+  try{ const paypal=await loadPayPal(S.clientId); if(!$('#ppBtns')) return; pb.innerHTML='';
+    await paypal.Buttons({ style:{layout:'horizontal',height:42,tagline:false,label:item.kind==='dono'?'donate':'pay'},
+      createOrder: async()=>{ const r=await shopCall('ordine',{item}); return r.id; },
+      onApprove: async(data)=>{ pb.innerHTML='<div class="note">⏳ Confermo il pagamento…</div>';
+        try{ const r=await shopCall('conferma',{id:data.orderID}); if(r&&r.profile) setProfile(r.profile); sfx('coin');
+          toast(item.kind==='dono'?'Grazie di cuore per il sostegno! ❤':item.kind==='cosm'?'Acquistato: lo trovi in Personalizzazione':'Pacchetti aggiunti: aprili in Pacchetti');
+          shopScreen(); }catch(e){ toast(econMsg(e)); shopScreen(); } },
+      onCancel: ()=>toast('Pagamento annullato'),
+      onError: e=>{ toast('PayPal: '+(e&&e.message?e.message:'errore')); } }).render(pb);
+  }catch(e){ pb.innerHTML='<div class="note">PayPal non si carica: controlla la connessione e riprova.</div>'; }
+}
+// pacchetti di classe comprati: si aprono dalla schermata Pacchetti
+async function openClassPackAnim(cls){ const r=await econDo('openClassPack',{cls}); if(!r) return; sfx('rip'); bonusToast(r.res.bonus); toast(`+${r.res.adam} ${ADAM}`);
+  revealCards(r.res.cards.map(x=>Object.assign({},x,{extra:x.adam})),{pack:true,after:()=>packsScreen()}); }
+document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bShop'); if(!b) return; e.preventDefault(); shopScreen(); });
+
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
 function bindSet(){ const b=$('#bSet'); if(b) b.onclick=()=>settingsBox(); }
 function settingsBox(){
@@ -715,12 +791,13 @@ function gameReward(){
 function craftCard(n){ const c=CARDS[n], o=ownLoad(); if(!c||c.r==='Gettone') return false; if(owned(n)>=E.MAX_COPIES[c.r]||o.coins<CRAFT[c.r]) return false; o.coins-=CRAFT[c.r]; o.cards[n]=owned(n)+1; ownSave(); checkClassBonus(); return true; }
 function sellCard(n){ const c=CARDS[n], o=ownLoad(); if(!c||owned(n)<=0) return false; o.coins+=SELL[c.r]; o.cards[n]=owned(n)-1; if(!o.cards[n]) delete o.cards[n]; ownSave(); return true; }
 function craftBar(c){ if(!c||c.r==='Gettone') return ''; const k=owned(c.n), mx=E.MAX_COPIES[c.r], o=ownLoad();
-  return `<div class="craft"><div class="crinfo">Possiedi <b>${k}/${mx}</b> · hai ${GI} <b>${o.coins}</b></div><div class="row"><button class="btn" id="crMake" ${k<mx&&o.coins>=CRAFT[c.r]?'':'disabled'}>Crea · ${CRAFT[c.r]} ${GI}</button><button class="btn" id="crSell" ${k>0?'':'disabled'}>Vendi · +${SELL[c.r]} ${GI}</button></div>${k>=mx?'<div class="crnote">Hai già il massimo di copie per un mazzo.</div>':o.coins<CRAFT[c.r]?`<div class="crnote">Ti mancano ${CRAFT[c.r]-o.coins} GRA per crearla.</div>`:''}</div>`; }
+  return `<div class="craft"><div class="crinfo">Possiedi <b>${k}/${mx}</b> · hai ${GI} <b>${o.coins}</b></div><div class="row"><button class="btn" id="crMake" ${k<mx&&o.coins>=CRAFT[c.r]?'':'disabled'}>Crea · ${CRAFT[c.r]} ${GI}</button>${ACC()&&(o.adam|0)>0?`<button class="btn" id="crMakeA" ${k<mx&&o.adam>=CRAFT[c.r]?'':'disabled'} title="${ADAM}: serve solo a creare carte">Crea · ${CRAFT[c.r]} ${AI_}</button>`:''}<button class="btn" id="crSell" ${k>0?'':'disabled'}>Vendi · +${SELL[c.r]} ${GI}</button></div>${k>=mx?'<div class="crnote">Hai già il massimo di copie per un mazzo.</div>':o.coins<CRAFT[c.r]?`<div class="crnote">Ti mancano ${CRAFT[c.r]-o.coins} GRA per crearla.</div>`:''}</div>`; }
 // finestra di una carta con Crea/Vendi; refresh() ridisegna la schermata sotto
 function cardModal(c,refresh,extraHtml){
   const d=modal(`${bigCard(c)}${extraHtml?extraHtml():''}${craftBar(c)}<div class="row" style="margin-top:10px"><button class="btn" id="mClose">Chiudi</button></div>`);
   $('#mClose').onclick=()=>{ closeModal(); refresh&&refresh(); };
   d.onclick=e=>{ if(e.target===d){ closeModal(); refresh&&refresh(); } };
+  const ma=$('#crMakeA'); if(ma) ma.onclick=async()=>{ const r=await econDo('craft',{n:c.n,cur:'adam'}); if(r){ bonusToast(r.res&&r.res.bonus); sfx('epic'); toast(`Hai creato ${c.n}`); cardModal(c,refresh,extraHtml); } };
   const mk=$('#crMake'); if(mk) mk.onclick=async()=>{ if(await craftX(c.n)){ sfx('epic'); toast(`Hai creato ${c.n}`); cardModal(c,refresh,extraHtml); } };
   const sl=$('#crSell'); if(sl) sl.onclick=()=>{ const k=owned(c.n); const all=loadDecks(); const hit=Object.entries(all).filter(([cls,l])=>(l||[]).some(([n,q])=>n===c.n&&q>k-1)).map(([cls])=>HEROES[cls].n);
     const base=Object.keys(E.DECKS).filter(cls=>baseOwned(cls)&&E.DECKS[cls].some(([n,q])=>n===c.n&&q>k-1)).map(cls=>HEROES[cls].n);
@@ -740,9 +817,10 @@ function packsScreen(){
   const all=collectible(); const have=all.filter(c=>owned(c.n)>0).length;
   const byR=['Comune','Rara','Epica','Leggendaria'].map(r=>{ const l=all.filter(c=>c.r===r); return [r,l.filter(c=>owned(c.n)>0).length,l.length]; });
   const toPity=Math.max(1,PACK.pity+1-o.pity);
-  app.innerHTML=`<div class="coll packs"><div class="chead"><button class="btn sm" id="cBack">‹ Menu</button><h2>Pacchetti</h2><span class="pill coin">${GI} ${o.coins}</span></div>
+  app.innerHTML=`<div class="coll packs"><div class="chead"><button class="btn sm" id="cBack">‹ Menu</button><h2>Pacchetti</h2><span class="pill coin">${GI} ${o.coins}</span>${ACC()&&(o.adam|0)?`<span class="pill adam" title="${ADAM}: serve solo a creare carte">${AI_} ${o.adam}</span>`:''}</div>
     <div class="pkmain">
       <div class="pkleft">${packArt(true)}<div class="pkcount">${o.packs?`Hai <b>${o.packs}</b> ${o.packs===1?'pacchetto':'pacchetti'} da aprire`:'Nessun pacchetto da aprire'}</div>
+        ${ACC()&&Object.keys(o.cpacks||{}).length?`<div class="cpacks"><b>Pacchetti di classe</b>${Object.entries(o.cpacks).map(([c,n])=>`<button class="btn sm cpo" data-c="${c}" style="--uc:${CLS_COLOR[c]}">${esc(HEROES[c].n)} · ${n} <span>Apri</span></button>`).join('')}</div>`:''}
         <div class="row"><button class="btn big" id="pOpen" ${o.packs?'':'disabled'}>Apri pacchetto</button><button class="btn" id="pBuy" ${o.coins>=PACK.cost?'':'disabled'}>Compra · ${PACK.cost} ${GI}</button></div></div>
       <div class="pkinfo"><h3>Cosa contiene</h3>
         <div class="note" style="text-align:left;max-width:none">Ogni pacchetto ha <b>${PACK.size} carte</b> di qualsiasi classe o neutrali. La quinta carta è sempre almeno <b style="color:${RAR_COL.Rara}">Rara</b>.</div>
@@ -756,6 +834,7 @@ function packsScreen(){
   $('#cBack').onclick=()=>menu();
   $('#pBuy').onclick=async()=>{ if(await buyPackX()){ sfx('coin'); packsScreen(); } };
   $('#pOpen').onclick=()=>openPackAnim();
+  app.querySelectorAll('.cpo').forEach(b=>b.onclick=()=>openClassPackAnim(b.dataset.c));
 }
 async function openPackAnim(){
   let res; if(ACC()){ const r=await econDo('openPack'); if(!r) return; res=r.res.cards; bonusToast(r.res.bonus); } else res=openPack();
@@ -768,7 +847,7 @@ function revealCards(res,opt){
   if(pk) pk.classList.add('shake');
   setTimeout(()=>{ if(pk){ pk.classList.add('burst'); sfx('burst'); setTimeout(()=>pk.remove(),460); }
     const cards=box.querySelector('.pkcards');
-    cards.innerHTML=res.map((x,i)=>`<div class="pkc r-${x.r}" data-i="${i}" style="--rc:${RAR_COL[x.r]};animation-delay:${i*0.07}s"><div class="pkin"><div class="pkback"><div class="pkbk"><img src="art/gra_oro.svg" alt=""></div></div><div class="pkface">${colCard(CARDS[x.n],'')}${x.nuova?'<div class="pktag new">Nuova!</div>':x.extra?`<div class="pktag dup">+${x.extra} ${GI}</div>`:''}</div></div></div>`).join('');
+    cards.innerHTML=res.map((x,i)=>`<div class="pkc r-${x.r}" data-i="${i}" style="--rc:${RAR_COL[x.r]};animation-delay:${i*0.07}s"><div class="pkin"><div class="pkback"><div class="pkbk"><img src="art/gra_oro.svg" alt=""></div></div><div class="pkface">${colCard(CARDS[x.n],'')}${x.nuova?'<div class="pktag new">Nuova!</div>':x.extra?`<div class="pktag dup">+${x.extra} ${x.adam?AI_:GI}</div>`:''}</div></div></div>`).join('');
     const left=new Set(res.map((_,i)=>i));
     const btns=box.querySelector('.pkbtns');
     const done=()=>{ const o=ownLoad();
@@ -1703,7 +1782,7 @@ async function getRoom(){
   try{ return await n.use('room'); }catch(e){ return null; }
 }
 function setNetMsg(s){ const n=$('#netmsg'); if(n) n.textContent=s; }
-function myCosm(){ return {back:SET.back||null,frame:SET.frame||null}; }
+function myCosm(){ const own=new Set(ownLoad().cosm||[]); const ok=k=>SET[k]&&own.has(SET[k])?SET[k]:null; return {back:ok('back'),frame:ok('frame')}; }
 // se l'avversario esce dalla stanza e non torna entro 20 secondi, la partita è vinta per abbandono
 function netWatch(net){
   let gone=null; const others=()=>net.r.peers().filter(p=>!p.isMe&&p.kind==='viewer').length;
@@ -1797,7 +1876,7 @@ async function joinOnline(code,opt){
 // e cambia solo tramite il server (premi verificati, pacchetti aperti dal server).
 let ACC_ON=false, ACC_SYNCING=false;
 function ACC(){ return ACC_ON && !window.claude && !!(window.ELG_NET&&window.ELG_NET.econ); }
-function normOwn(p){ p=Object.assign({cards:{},coins:0,games:0,wins:0,packs:0,pity:0,opened:0,start:null,done:{},cosm:[]},p||{}); p.cards=p.cards||{}; p.done=p.done||{}; p.cosm=Array.isArray(p.cosm)?p.cosm:Object.values(p.cosm||{}); p.gStart=1; return p; }
+function normOwn(p){ p=Object.assign({cards:{},coins:0,adam:0,cpacks:{},games:0,wins:0,packs:0,pity:0,opened:0,start:null,done:{},cosm:[]},p||{}); p.cpacks=p.cpacks||{}; p.cards=p.cards||{}; p.done=p.done||{}; p.cosm=Array.isArray(p.cosm)?p.cosm:Object.values(p.cosm||{}); p.gStart=1; return p; }
 function setProfile(p){ OWN=normOwn(p); }
 function econMsg(e){ const m=(e&&e.message)||''; return /internal|deadline|unavailable/i.test((e&&e.code)||'')?'Server non raggiungibile: riprova tra poco.':(m||'Operazione non riuscita.'); }
 async function econDo(op,data,quiet){ try{ const r=await window.ELG_NET.econ(op,data); if(r&&r.profile) setProfile(r.profile); return r; }catch(e){ if(!quiet) toast(econMsg(e)); return null; } }
@@ -1883,7 +1962,9 @@ const TIERS=[
 const ROMAN={3:'III',2:'II',1:'I'}, PEND=5, RKEY='elg_classificata_v1', CREMISI=4;
 const SEASON_REWARDS=[
   {gra:100,packs:0},{gra:200,packs:1},{gra:300,packs:2},{gra:500,packs:3,cosm:'dorso-nera'},{gra:800,packs:5,cosm:'dorso-cremisi'}];
-const COSM={ 'dorso-nera':{n:'Dorso della Taglia Nera',k:'back'}, 'dorso-cremisi':{n:'Dorso della Taglia Cremisi',k:'back'}, 'cornice-cremisi':{n:'Cornice Cremisi (primi 200)',k:'frame'} };
+const COSM={ 'dorso-nera':{n:'Dorso della Taglia Nera',k:'back'}, 'dorso-cremisi':{n:'Dorso della Taglia Cremisi',k:'back'}, 'cornice-cremisi':{n:'Cornice Cremisi (primi 200)',k:'frame'},
+  'dorso-stellato':{n:'Dorso Stellato',k:'back'}, 'dorso-ossidiana':{n:"Dorso d'Ossidiana",k:'back'}, 'dorso-marea':{n:'Dorso della Marea',k:'back'}, 'dorso-brace':{n:'Dorso di Brace',k:'back'},
+  'cornice-oro':{n:"Cornice d'Oro",k:'frame'}, 'cornice-argento':{n:"Cornice d'Argento",k:'frame'}, 'cornice-stellata':{n:'Cornice Stellata',k:'frame'}, 'cornice-brace':{n:'Cornice di Brace',k:'frame'} };
 function seasonKey(d){ d=d||new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function seasonLeft(){ const d=new Date(); const end=new Date(d.getFullYear(),d.getMonth()+1,1); const h=Math.max(0,Math.round((end-d)/36e5)); return h>=48?Math.floor(h/24)+' giorni':h+' ore'; }
 let RANK=null;
@@ -1968,7 +2049,7 @@ function rankScreen(){
       <div class="note" style="text-align:left;max-width:none">Ogni rango ha tre livelli (III, II, I). In ogni livello si raccolgono <b>5 pendenti</b>, come quelli che si prendono riscuotendo una taglia: <b>vittoria +1</b>, <b>sconfitta −1</b>. Con 5 pendenti sali di livello; a pendenti finiti una sconfitta ti fa scendere di livello, ma mai sotto l'inizio del rango. In <b>Taglia Bianca</b> le sconfitte non tolgono pendenti. Abbandonare una partita conta come sconfitta.<br>Nella <b>Taglia Cremisi</b> i pendenti spariscono: conta un punteggio che sale e scende in base alla forza dell'avversario, e i <b>primi 200</b> sono in classifica. Il primo porta l'annotazione <b>INSUPERATUS</b>.</div>
       <div class="rkladder">${TIERS.map((t,i)=>`<div class="${i===r.tier?'cur':''}" style="--tc:${t.col};--ti:${t.ink}"><i></i><b>Taglia ${t.n}</b><small>${i<CREMISI?`${t.base.toLocaleString('it-IT')}–${(t.base+14*t.step).toLocaleString('it-IT')} GRA`:'classifica a punti'}</small><em>${GI} ${SEASON_REWARDS[i].gra}${SEASON_REWARDS[i].packs?` · 🎴 ${SEASON_REWARDS[i].packs}`:''}${SEASON_REWARDS[i].cosm?' · ✦ dorso':''}</em></div>`).join('')}</div>
       <div class="note" style="text-align:left;max-width:none">A fine stagione (ogni mese) ricevi i premi del rango raggiunto e riparti un rango più in basso; dalla Cremisi si riparte da Nera I. I primi 200 della Cremisi ottengono anche la <b>Cornice Cremisi</b> per l'eroe.</div>
-      ${o.cosm.length?`<h3>Premi sbloccati</h3><div class="rkcosm">${o.cosm.map(k=>`<label><input type="radio" name="${COSM[k].k}" value="${k}" ${SET[COSM[k].k]===k?'checked':''}> ${esc(COSM[k].n)}</label>`).join('')}<label><input type="radio" name="back" value="" ${!SET.back?'checked':''}> Dorso normale</label>${o.cosm.includes('cornice-cremisi')?`<label><input type="radio" name="frame" value="" ${!SET.frame?'checked':''}> Nessuna cornice</label>`:''}</div>`:''}
+      ${o.cosm.filter(k=>COSM[k]).length?`<h3>Premi sbloccati</h3><div class="rkcosm">${o.cosm.filter(k=>COSM[k]).map(k=>`<label><input type="radio" name="${COSM[k].k}" value="${k}" ${SET[COSM[k].k]===k?'checked':''}> ${esc(COSM[k].n)}</label>`).join('')}<label><input type="radio" name="back" value="" ${!SET.back?'checked':''}> Dorso normale</label>${o.cosm.includes('cornice-cremisi')?`<label><input type="radio" name="frame" value="" ${!SET.frame?'checked':''}> Nessuna cornice</label>`:''}</div>`:''}
       <h3>Classifica Cremisi · primi 200</h3><div class="rklb" id="rkLb"><div class="note">Carico la classifica…</div></div>
       ${r.hist&&r.hist.length?`<h3>Stagioni passate</h3><div class="rkhist">${r.hist.slice().reverse().map(h=>`<div><b>${esc(h.season)}</b> · ${esc(rankName(h))}${h.place?` · #${h.place}`:''}</div>`).join('')}</div>`:''}
     </div></div></div>`;

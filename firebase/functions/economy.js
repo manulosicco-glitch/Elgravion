@@ -15,8 +15,8 @@ function make(E, CARDS){
   // il tetto dell'importazione cresce da solo con la collezione: più carte nel gioco, più GRA e pacchetti ammessi
   const importCaps = () => { const n = collectible().length; return { coins: Math.round((n * 20 + 200) / 50) * 50, packs: Math.max(5, Math.ceil(n / 14)) }; };
   const maxOf = n => E.MAX_COPIES[CARDS[n].r] || 0;
-  const fresh = () => ({ v: 1, cards: {}, coins: 0, packs: 0, pity: 0, opened: 0, games: 0, wins: 0, start: null, done: {}, cosm: [], day: '', dayN: 0 });
-  const norm = p => { p = Object.assign(fresh(), p || {}); p.cards = p.cards || {}; p.done = p.done || {}; p.cosm = Array.isArray(p.cosm) ? p.cosm : Object.values(p.cosm || {}); return p; };
+  const fresh = () => ({ v: 1, cards: {}, coins: 0, adam: 0, cpacks: {}, cpity: 0, packs: 0, pity: 0, opened: 0, games: 0, wins: 0, start: null, done: {}, cosm: [], day: '', dayN: 0 });
+  const norm = p => { p = Object.assign(fresh(), p || {}); p.cards = p.cards || {}; p.done = p.done || {}; p.cpacks = p.cpacks || {}; p.adam = p.adam | 0; p.cosm = Array.isArray(p.cosm) ? p.cosm : Object.values(p.cosm || {}); return p; };
   const fail = m => { const e = new Error(m); e.user = true; throw e; };
 
   function classComplete(p, cls){ return collectible().filter(c => c.cl === cls).every(c => (p.cards[c.n] || 0) >= maxOf(c.n)); }
@@ -54,9 +54,31 @@ function make(E, CARDS){
     return { cards: res, bonus };
   }
   function buyPack(p){ if (p.coins < PACK.cost) fail('GRA insufficienti.'); p.coins -= PACK.cost; p.packs++; return {}; }
-  function craft(p, n){ const c = CARDS[n]; if (!c || c.r === 'Gettone') fail('Carta sconosciuta.');
-    if ((p.cards[n] || 0) >= maxOf(n)) fail('Hai già il massimo di copie.'); if (p.coins < CRAFT[c.r]) fail('GRA insufficienti.');
-    p.coins -= CRAFT[c.r]; p.cards[n] = (p.cards[n] || 0) + 1; return { bonus: classBonus(p) }; }
+  // si crea con i GRA oppure con l'Adamantio (che serve solo a questo)
+  function craft(p, n, cur){ const c = CARDS[n]; if (!c || c.r === 'Gettone') fail('Carta sconosciuta.');
+    if ((p.cards[n] || 0) >= maxOf(n)) fail('Hai già il massimo di copie.');
+    if (cur === 'adam') { if (p.adam < CRAFT[c.r]) fail('Adamantio insufficiente.'); p.adam -= CRAFT[c.r]; }
+    else { if (p.coins < CRAFT[c.r]) fail('GRA insufficienti.'); p.coins -= CRAFT[c.r]; }
+    p.cards[n] = (p.cards[n] || 0) + 1; return { bonus: classBonus(p) }; }
+  // pacchetto di classe (dal negozio): carte solo della classe scelta + Adamantio; i doppioni oltre il massimo diventano Adamantio
+  function openClassPack(p, cls, rnd, cfg){
+    if (!CLASSES.includes(cls)) fail('Classe sconosciuta.');
+    if (!((p.cpacks[cls] | 0) > 0)) fail('Non hai pacchetti di questa classe.');
+    p.cpacks[cls]--; if (!p.cpacks[cls]) delete p.cpacks[cls];
+    const res = []; let leg = false;
+    for (let i = 0; i < cfg.size; i++) {
+      let r = rollRar(i === cfg.size - 1 ? PACK.last : PACK.odds, rnd);
+      if (i === cfg.size - 1 && !leg && p.cpity >= PACK.pity) r = 'Leggendaria';
+      let pool = collectible().filter(c => c.cl === cls && c.r === r);
+      if (!pool.length) pool = collectible().filter(c => c.cl === cls);
+      const c = pool[Math.floor(rnd() * pool.length)]; if (c.r === 'Leggendaria') leg = true; res.push({ n: c.n, r: c.r });
+    }
+    res.sort((a, b) => RAR_ORD[a.r] - RAR_ORD[b.r]);
+    for (const x of res) { const have = p.cards[x.n] || 0, mx = maxOf(x.n);
+      if (have < mx) { p.cards[x.n] = have + 1; x.nuova = have === 0; } else { x.adam = SELL[x.r]; p.adam += x.adam; } }
+    p.cpity = leg ? 0 : (p.cpity | 0) + 1; p.adam += cfg.adam; p.opened++;
+    return { cards: res, adam: cfg.adam, bonus: classBonus(p) };
+  }
   function sell(p, n){ const c = CARDS[n]; if (!c || !(p.cards[n] > 0)) fail('Non possiedi questa carta.');
     p.coins += SELL[c.r]; p.cards[n]--; if (!p.cards[n]) delete p.cards[n]; return {}; }
   // premio di fine partita, con un tetto giornaliero
@@ -88,6 +110,6 @@ function make(E, CARDS){
   }
   // un mazzo è usabile solo con carte possedute
   function deckOwned(p, deck){ return !deck || deck.every(([n, k]) => (p.cards[n] || 0) >= k); }
-  return { importCaps, fresh, norm, starter, openPack, buyPack, craft, sell, reward, importLocal, seasonReward, deckOwned, classBonus };
+  return { openClassPack, importCaps, fresh, norm, starter, openPack, buyPack, craft, sell, reward, importLocal, seasonReward, deckOwned, classBonus };
 }
 module.exports = { make, PACK, CRAFT, SELL, DAILY_REWARDS };

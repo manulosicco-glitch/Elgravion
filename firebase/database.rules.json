@@ -82,6 +82,18 @@
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren()"
       }
+    },
+    "orders": {
+      ".read": false,
+      ".write": false
+    },
+    "donations": {
+      ".read": false,
+      ".write": false
+    },
+    "secret": {
+      ".read": false,
+      ".write": false
     }
   }
 }
