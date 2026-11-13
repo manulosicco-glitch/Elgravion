@@ -169,8 +169,7 @@ function recompute(g){
       // Coltivatore di grano: il tuo Codalunga più lontano da lui ha +1/+1 (a parità, il più a sinistra)
       if(s.n==='Coltivatore di grano della Doralia'){ let best=null,bd=-1; for(const o of mine) if(o.tribe==='Codalunga'){ const d=Math.abs(o.slots[0]-s.slots[0]); if(d>bd||(d===bd&&o.slots[0]<best.slots[0])){ bd=d; best=o; } } if(best){ best.auraA+=1; best.auraD+=1; } }
     }
-    for(const o of mine){ const mul=o.n==="L'Opera Ultima"&&!o.silenced?2:1; for(const pr of (o.prot||[])){ o.auraA+=pr.a*mul; o.auraD+=(pr.d+(pr.t==='r'&&p.cls==='incisore'&&p.mutated?1:0))*mul; } }
-    if(p.cls==='scudiera'&&p.mutated) for(const o of mine) o.auraD-=1;
+    for(const o of mine){ const mul=o.n==="L'Opera Ultima"&&!o.silenced?2:1; for(const pr of (o.prot||[])){ o.auraA+=pr.a*mul; o.auraD+=pr.d*mul; } }
     for(const d of unitsOf(g,p)) if(!d.silenced){
       if(d.n==='Tisquy' && !d.silenced) for(const o of mine) if(o.tribe==='Spirito'){ o.auraA+=1; o.auraD+=1; }
       if(d.n==='Tripia' && empatia(g,d)) for(const o of mine) if(o.tribe==='Costrutto') o.akw.Predatore=true;
@@ -188,6 +187,7 @@ function heroDamage(g,p,n,src){
   if(n<=0||g.over) return;
   const ab=Math.min(p.armor,n); p.armor-=ab; n-=ab;
   p.pf-=n; g.ev.push({t:'hdmg',p:p.i,n}); credit(g,p.i,n,false);
+  if(p.pf<=0 && p.heroFuga){ p.heroFuga=false; p.pf=1; log(g,`Via di fuga: ${p.name} sfugge alla morte e resta a 1 PF.`); g.ev.push({t:'kw',k:'Via di fuga',hero:p.i}); return; }
   if(p.pf<=0){ p.pf=0; g.over=true; g.winner=1-p.i; log(g,`${p.name} cade. Vince ${opp(g,p).name}!`); return; }
   if(p.pf<=20 && !p.mutated) mutateHero(g,p);
 }
@@ -196,6 +196,7 @@ function heroHeal(g,p,n){ p.pf=Math.min(p.maxPf||HEROPF,p.pf+n); }
 function gainMaxPf(g,p,n){ p.maxPf=(p.maxPf||HEROPF)+n; p.pf+=n; log(g,`${p.name}: PF massimi +${n} (${p.maxPf}).`); }
 function mutateHero(g,p){
   if(p.mutated) return; p.mutated=true; log(g,`${p.name} MUTA! Il potere eroe cambia.`); g.ev.push({t:'mutate',p:p.i});
+  if(p.cls==='traccia'){ p.heroFuga=true; log(g,`${p.name} ottiene Via di fuga: la prima volta che scenderebbe a 0 PF resta a 1.`); }
 }
 function damage(g,u,n,src){
   if(n<=0||!g.units[u.uid]) return 0;
@@ -268,7 +269,7 @@ function viaDiFuga(g,p,u){
   for(const x of minionsOf(g,p)) if(x.n==="Becchino dell'Orologio"&&!x.silenced&&x!==n){ n.buffA+=1; n.buffD+=1; }
   log(g,`${u.n} torna in gioco (Via di fuga).`); g.ev.push({t:'kw',k:'Via di fuga',u:n.uid});
   for(const x of minionsOf(g,p)) if(x.n==='Lettore di Nebbia'&&!x.silenced) draw(g,p);
-  if(p.cls==='traccia'&&p.mutated){ const o=opp(g,p); const e=pick(g,minionsOf(g,o).filter(z=>!z.inCaccia)); if(e){ pietrifica(g,e); log(g,`Paura contagiosa: ${e.n} è Pietrificato.`); } }
+  if(false){ const o=opp(g,p); const e=pick(g,minionsOf(g,o).filter(z=>!z.inCaccia)); if(e){ pietrifica(g,e); log(g,`Paura contagiosa: ${e.n} è Pietrificato.`); } }
 }
 function adjacentAllies(g,u,p){ const out=[]; for(const i of [u.slots[0]-1,u.slots[u.slots.length-1]+1]){ const s=p.slots[i]; if(s&&s.unit&&g.units[s.unit]&&g.units[s.unit].kind==='minion') out.push(g.units[s.unit]); } return out; }
 
@@ -320,7 +321,7 @@ function resolvePending(g,pi,choice){
     pd.cards.forEach((n,i)=>{ if(i!==choice) p.deck.push(n); });
     if(took){ addHand(g,p,take); log(g,`${p.name} Scava e prende una carta.`); }
     else {
-      let k=1; if(p.mutated && p.cls==='minatore'){ k=2; heroDamage(g,p,1); }
+      let k=1;
       for(let j=0;j<k;j++) addHand(g,p,'Stella di Piombo');
       log(g,`${p.name} Scava e aggiunge ${k} Stell${k>1?'e':'a'}.`);
     }
@@ -773,14 +774,13 @@ function usePower(g,pi,target){
     log(g,`${p.name} usa ${p.mutated?'Rito di sangue':'Rito di scaglia'} su ${u.n}.`);
   } else if(p.cls==='traccia'){
     p.esca={fuga:p.mutated}; log(g,`${p.name} usa ${p.mutated?'Esca di fuga':'Esca'}: il prossimo seguace occuperà 2 slot.`);
-    if(p.mutated) p.powerLock=p.ownTurns+1;
   } else if(p.cls==='adepto'){
     const which = target==='straxiart'?'straxiart':'pashey';
     log(g,`${p.name} usa ${p.mutated?'Eco dello Spirito':'Meditazione'}.`);
-    if(p.mutated) heroDamage(g,p,1); else { p.heroA=(p.heroA||0)+1; log(g,`L'eroe di ${p.name} ottiene +1 Attacco in questo turno.`); }
+    if(!p.mutated){ p.heroA=(p.heroA||0)+1; log(g,`L'eroe di ${p.name} ottiene +1 Attacco in questo turno.`); }
     summonSpirit(g,p,which,p.mutated);
     for(const t of unitsOf(g,p)) if(t.n==='Tisquy' && t.anime>=2 && freeSlots(g,p,false).length){ t.anime-=2; { const sp=summonSpirit(g,p,which,false); if(sp){ sp.baseA=2; sp.baseD=2; } } log(g,'Tisquy spende 2 Anime: evoca uno Spirito 2/2.'); }
-    const times=p.mutated?2:1;
+    const times=1;
     for(let k=0;k<times;k++) for(const u of minionsOf(g,p)) if(!u.silenced && g.units[u.uid]) immersione(g,p,u);
   } else if(p.cls==='minatore'){
     if(!p.deck.length) return 'il mazzo è vuoto';
@@ -882,9 +882,8 @@ function startTurn(g){
     if(u.n==='Uovo di Magga' && u.age>=(stall?0:1)) levelUp(g,u);
     if(u.n==='Stalliere Imperiale' && u.age>=1 && !u.stallDone){ u.stallDone=true; if(summonToken(g,p,'Uovo di Magga',0,2)) log(g,`Stalliere Imperiale porta un Uovo di Magga.`); }
     else if((u.n==='Cucciolo di Magga' || (u.n==='Magga Giovane'&&u.grown)) && u.age>=1) levelUp(g,u);
-    if(p.cls==='scudiera'&&p.mutated&&u.scaglia<u.scagliaMax) u.scaglia=u.scagliaMax;
   }
-  if(p.cls==='incisore'&&p.mutated){ const bio=minionsOf(g,p).reduce((m,u)=>m+(u.prot||[]).filter(x=>x.t==='b').length,0); if(bio){ heroDamage(g,p,bio); log(g,`Le Protesi biologiche infliggono ${bio} danni a ${p.name}.`); } }
+  if(false){ const bio=minionsOf(g,p).reduce((m,u)=>m+(u.prot||[]).filter(x=>x.t==='b').length,0); if(bio){ heroDamage(g,p,bio); log(g,`Le Protesi biologiche infliggono ${bio} danni a ${p.name}.`); } }
   for(const d of unitsOf(g,p)) if(!d.silenced){
     if(d.n==='Tripia') for(const x of minionsOf(g,p)) if(x.slots.some(i=>d.slots.includes(i-1)||d.slots.includes(i+1))) x.dmg=0;
     if(d.n==='Porto di Casa Uyvergg'){ summonToken(g,p,'Drago del Porto',1,1); if(empatia(g,d)) for(const x of minionsOf(g,p)) if((x.tribe==='Drago'||x.tribe==='Thalari')&&x.scaglia<1){ x.scaglia=1; x.scagliaMax=Math.max(x.scagliaMax,1); } }
@@ -938,8 +937,7 @@ function endTurn(g,pi,payArg){
 function finishEnd(g,pi){
   const p=g.players[pi], o=opp(g,p);
   g.ending=false;
-  // Maledizione della Sirena mutata
-  if(p.cls==='sirena' && p.mutated){
+  if(false){
     const s=minionsOf(g,p).filter(isStrofa).length; if(s>=2) heroHeal(g,p,Math.floor(s/2)); else if(!s) heroDamage(g,p,2);
   }
   // Baessa dell'avversario: riscuote 1 GRA inutilizzato
