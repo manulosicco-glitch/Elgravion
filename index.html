@@ -899,6 +899,36 @@ img.gi{width:1.25em;height:1.25em;vertical-align:-.3em;display:inline-block}
 .rkcard .btn.big{width:100%;font-size:15px;padding:12px 10px}
 .upd{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:99999;background:#241e2c;border:1px solid var(--gold);color:var(--gold2);padding:8px 14px;border-radius:10px;font-family:Cinzel,serif;font-size:14px;box-shadow:0 6px 24px #000a}.upd button{margin-left:10px;background:var(--gold);color:#1a1622;border:0;border-radius:6px;padding:4px 10px;font-family:inherit;font-weight:700;cursor:pointer}
 .instw{display:contents}
+
+/* ---------- Potere eroe come gemma di un anello + luce ai lati */
+.power{width:58px;height:58px;padding:0;background:radial-gradient(circle,#1a1420,#000);margin-left:16px;overflow:visible;box-shadow:none}
+.power img{position:relative;z-index:1;border-radius:50%;box-shadow:inset 0 0 0 1px #000}
+.power .ring{position:absolute;inset:-22%;width:144%;height:144%;z-index:2;pointer-events:none;overflow:visible;filter:drop-shadow(0 2px 3px #000c)}
+.power .c{z-index:3;top:-12px;left:-12px}
+.power.off{filter:none} .power.off img{filter:grayscale(1) brightness(.5)} .power.off:hover{filter:none} .power.off:hover img{filter:grayscale(.6) brightness(.75)}
+.power.can{box-shadow:0 0 0 2px #fff3cf,0 0 18px #ffd34d} .power.sel{box-shadow:0 0 0 3px #fff,0 0 20px #fff}
+.power.tg{box-shadow:0 0 0 3px #ff5a5a,0 0 16px #ff5a5a}
+@media (min-width:1100px){ .power{width:74px;height:74px;margin-left:22px} .power .c{width:30px;height:30px;font-size:15px;top:-14px;left:-14px} }
+@media (max-width:560px){ .power{width:46px;height:46px;margin-left:10px} .power .c{top:-9px;left:-9px} }
+.board{background:radial-gradient(ellipse at 50% 50%,#2e2636 0%,#1c1724b0 70%,#1a1622a8 100%),url(art/tavolo_mappa.jpg) center/cover!important;box-shadow:inset 0 0 40px #0007,inset 0 0 0 1px #3a3245!important}
+html,body{background:radial-gradient(ellipse at 50% 40%,#43384f,#221b2a 85%)}
+.hand{background:radial-gradient(ellipse 70% 120% at 50% 0%,#4a3a28 0%,#33281b 55%,#241c13 100%)!important}
+.hand::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#c9a24b14,transparent 18%,transparent 82%,#c9a24b14)}
+.bar{background:linear-gradient(90deg,#ffffff08,transparent 22%,transparent 78%,#ffffff08),linear-gradient(#302839,#1e1925)}
+.bar.me{background:linear-gradient(90deg,#ffffff0a,transparent 22%,transparent 78%,#ffffff0a),linear-gradient(#1e1925,#322a3b)}
+
+/* Anello del potere eroe e luminosità ai lati (novembre) */
+.power{width:66px;height:66px;margin-left:30px}
+.power img{position:relative;z-index:1}
+.power .rband{position:absolute;left:-52%;top:-22%;width:204%;height:157%;z-index:0;pointer-events:none;overflow:visible;filter:drop-shadow(0 3px 3px #000b)}
+.power.off img{filter:grayscale(.55) brightness(.7)} .power.off:hover img{filter:grayscale(.2) brightness(.9)}
+@media (min-width:1100px){ .power{width:84px;height:84px;margin-left:40px} .power .c{top:-16px;left:-16px} }
+@media (max-width:560px){ .power{width:50px;height:50px;margin-left:16px} }
+html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
+.board{background:radial-gradient(ellipse at 50% 50%,#2a223270 0%,#16121c9c 90%),url(art/tavolo_mappa.jpg) center/cover!important;box-shadow:inset 0 0 40px #0007,inset 0 0 0 1px #3a3245}
+.hand{background:linear-gradient(#3a2f22,#231b13)!important}
+.mc.no{filter:grayscale(.6) brightness(.74)}
+@media (min-width:761px){ body::after{height:90px;background:linear-gradient(transparent,#0b090d55)} .hand{background:none!important} }
 </style>
 </head>
 <body>

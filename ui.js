@@ -241,6 +241,84 @@ function installApp(){
   $('#mInstOk').onclick=closeModal;
 }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bInst'); if(b){ e.preventDefault(); installApp(); } });
+// ======================= POTERE EROE: castone ad anello per classe
+const RING_PAL={
+  minatore:{m:['#f4f7ff','#9fb2d8','#5a6c96','#e3ebff','#3b4870'],g:'#3f7dff',g2:'#bfe0ff'},
+  sirena:{m:['#fff0c8','#e0b04a','#8a5a14','#ffd77a','#5a3608'],g:'#e2263c',g2:'#ffc0c8'},
+  adepto:{m:['#fff1cf','#c79a52','#6e4a1c','#e8c27a','#3f2a10'],g:'#1fae6a',g2:'#bff5d6'},
+  traccia:{m:['#c9b8b0','#6e5c58','#2a2224','#9c8580','#141012'],g:'#b23a2a',g2:'#ffb08a'},
+  incisore:{m:['#ffffff','#e6e1d6','#a89f8c','#fbf6ea','#6d6556'],g:'#d6a43a',g2:'#fff0b8'},
+  scudiera:{m:['#fff6d2','#e9c45a','#9a6f12','#ffe08a','#5c4006'],g:'#3b6fe0',g2:'#d0e0ff'}
+};
+function ringSvg(cls,id){
+  const P=RING_PAL[cls]||RING_PAL.minatore, m=P.m, k='rg'+id+cls;
+  const gem=(x,y,r,c,c2)=>`<circle cx="${x}" cy="${y}" r="${r+1.6}" fill="url(#${k}m)" stroke="#000a" stroke-width=".8"/><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${k}g)"/><circle cx="${x-r*.35}" cy="${y-r*.35}" r="${r*.32}" fill="#fff" opacity=".75"/>`;
+  const prong=a=>{ const r=a*Math.PI/180, c=Math.cos(r), s=Math.sin(r); const p=(R,o)=>[(R*c-o*s).toFixed(1),(R*s+o*c).toFixed(1)];
+    const [x1,y1]=p(86,-6),[x2,y2]=p(86,6),[x3,y3]=p(61,0); return `<path d="M${x1} ${y1} Q${p(74,-7)} ${x3} ${y3} Q${p(74,7)} ${x2} ${y2}Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/><circle cx="${p(63,0)[0]}" cy="${p(63,0)[1]}" r="2.4" fill="${m[0]}" opacity=".9"/>`; };
+  const prongs=(n,off)=>Array.from({length:n},(_,i)=>prong(off+i*360/n)).join('');
+  let deco='';
+  if(cls==='minatore'){ // stelle a quattro punte e zaffiri
+    const star=(x,y,s)=>`<path d="M${x} ${y-s}L${x+s*.22} ${y-s*.22}L${x+s} ${y}L${x+s*.22} ${y+s*.22}L${x} ${y+s}L${x-s*.22} ${y+s*.22}L${x-s} ${y}L${x-s*.22} ${y-s*.22}Z" fill="url(#${k}m)" stroke="#0007" stroke-width=".7"/>`;
+    deco=star(0,-92,13)+star(0,92,10)+star(-92,0,10)+star(92,0,10)+gem(-66,-66,6)+gem(66,-66,6)+gem(-66,66,5)+gem(66,66,5)+prongs(4,45);
+  } else if(cls==='sirena'){ // conchiglie, onde e perle
+    const shell=(a,s)=>`<g transform="rotate(${a}) translate(0 -88)"><path d="M0 ${-s} C${s*1.1} ${-s} ${s*1.2} ${s*.6} 0 ${s*.8} C${-s*1.2} ${s*.6} ${-s*1.1} ${-s} 0 ${-s}Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/>${[-.6,-.3,0,.3,.6].map(t=>`<path d="M0 ${s*.7} L${(t*s*1.3).toFixed(1)} ${(-s*.8).toFixed(1)}" stroke="#5a3608" stroke-width=".9" opacity=".7"/>`).join('')}</g>`;
+    const pearls=Array.from({length:16},(_,i)=>{ const a=(i*22.5+11.25)*Math.PI/180; return `<circle cx="${(84*Math.cos(a)).toFixed(1)}" cy="${(84*Math.sin(a)).toFixed(1)}" r="3.4" fill="url(#${k}p)" stroke="#0006" stroke-width=".5"/>`; }).join('');
+    deco=pearls+shell(0,15)+shell(180,11)+gem(-90,0,6)+gem(90,0,6)+prongs(4,45);
+  } else if(cls==='adepto'){ // foglie e volute di nuvola, giada
+    const leaf=(a)=>`<g transform="rotate(${a})"><path d="M0 -80 C14 -88 20 -100 6 -104 C-2 -96 -6 -88 0 -80Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/><path d="M0 -80 C-14 -88 -20 -100 -6 -104 C2 -96 6 -88 0 -80Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8" opacity=".85"/></g>`;
+    const cloud=(a)=>`<g transform="rotate(${a})"><path d="M-14 -84 a7 7 0 1 1 10 -6 a8 8 0 0 1 14 2 a6 6 0 0 1 4 10" fill="none" stroke="url(#${k}m)" stroke-width="4" stroke-linecap="round"/></g>`;
+    deco=leaf(0)+leaf(180)+cloud(60)+cloud(120)+cloud(240)+cloud(300)+gem(-88,0,7)+gem(88,0,7)+prongs(6,30);
+  } else if(cls==='traccia'){ // ferro brunito, spine e lanterna
+    const thorn=(a)=>`<g transform="rotate(${a})"><path d="M-4 -82 L0 -98 L4 -82Z" fill="url(#${k}m)" stroke="#0009" stroke-width=".7"/></g>`;
+    const lantern=`<g transform="translate(0 -92)"><rect x="-8" y="-9" width="16" height="17" rx="3" fill="url(#${k}m)" stroke="#000a"/><rect x="-5" y="-6" width="10" height="11" rx="2" fill="${P.g}" opacity=".9"/><circle cx="0" cy="-.5" r="3.4" fill="${P.g2}"/><path d="M-6 -9 Q0 -17 6 -9" fill="none" stroke="url(#${k}m)" stroke-width="2.4"/></g>`;
+    deco=Array.from({length:12},(_,i)=>i%3===0?'':thorn(i*30)).join('')+lantern+`<path d="M-10 92 Q0 82 10 92 Q0 100 -10 92Z" fill="url(#${k}m)" stroke="#000a"/>`+gem(-88,0,5)+gem(88,0,5)+prongs(3,90);
+  } else if(cls==='incisore'){ // rune incise e ingranaggi
+    const runes=Array.from({length:24},(_,i)=>{ const a=i*15*Math.PI/180, c=Math.cos(a), s=Math.sin(a); const r1=72, r2=i%2?78:80; return `<line x1="${(r1*c).toFixed(1)}" y1="${(r1*s).toFixed(1)}" x2="${(r2*c).toFixed(1)}" y2="${(r2*s).toFixed(1)}" stroke="#8a6a1c" stroke-width="1.6"/>`; }).join('');
+    const gear=(x,y,r)=>{ const t=Array.from({length:8},(_,i)=>{ const a=i*45*Math.PI/180; return `<rect x="${(x+Math.cos(a)*r-2.5).toFixed(1)}" y="${(y+Math.sin(a)*r-2.5).toFixed(1)}" width="5" height="5" transform="rotate(${i*45} ${(x+Math.cos(a)*r).toFixed(1)} ${(y+Math.sin(a)*r).toFixed(1)})" fill="url(#${k}m)"/>`; }).join(''); return t+`<circle cx="${x}" cy="${y}" r="${r}" fill="url(#${k}m)" stroke="#0008"/><circle cx="${x}" cy="${y}" r="${r*.4}" fill="#6d6556"/>`; };
+    deco=runes+gear(0,-92,9)+gear(-90,0,7)+gear(90,0,7)+gem(0,92,6)+prongs(6,0);
+  } else if(cls==='scudiera'){ // ali di drago e scaglie
+    const wing=(sx)=>`<g transform="scale(${sx} 1)"><path d="M78 -10 C96 -34 118 -40 128 -30 C118 -26 116 -18 120 -10 C110 -12 104 -6 106 4 C96 0 90 4 86 12 Z" fill="url(#${k}m)" stroke="#0009" stroke-width="1"/><path d="M84 -6 L120 -28 M86 2 L114 -10 M86 8 L104 4" stroke="#5c4006" stroke-width="1.1" fill="none" opacity=".75"/></g>`;
+    const scales=Array.from({length:10},(_,i)=>{ const a=(200+i*14)*Math.PI/180; return `<path d="M${(84*Math.cos(a)).toFixed(1)} ${(84*Math.sin(a)).toFixed(1)} a5 5 0 0 0 0 9" transform="rotate(${200+i*14+90} ${(84*Math.cos(a)).toFixed(1)} ${(84*Math.sin(a)).toFixed(1)})" fill="none" stroke="url(#${k}m)" stroke-width="2.6"/>`; }).join('');
+    deco=wing(1)+wing(-1)+`<path d="M-12 -86 L0 -102 L12 -86 L0 -90Z" fill="url(#${k}m)" stroke="#0009"/>`+gem(0,-80,5)+scales+gem(0,90,6)+prongs(4,45);
+  }
+  return `<svg class="ring" viewBox="-100 -100 200 200" aria-hidden="true"><defs>
+    <linearGradient id="${k}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m[0]}"/><stop offset=".28" stop-color="${m[1]}"/><stop offset=".5" stop-color="${m[3]}"/><stop offset=".72" stop-color="${m[2]}"/><stop offset="1" stop-color="${m[1]}"/></linearGradient>
+    <radialGradient id="${k}g" cx=".35" cy=".35" r=".75"><stop offset="0" stop-color="${P.g2}"/><stop offset=".55" stop-color="${P.g}"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <radialGradient id="${k}p" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#f3e6ef"/><stop offset="1" stop-color="#b7a3b5"/></radialGradient>
+    <radialGradient id="${k}dome" cx=".5" cy=".5" r=".5"><stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset=".92" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>
+  </defs>
+  <circle r="77" fill="none" stroke="#000" stroke-width="13" opacity=".55"/>
+  <circle r="77" fill="none" stroke="url(#${k}m)" stroke-width="10"/>
+  <circle r="77" fill="none" stroke="${m[4]}" stroke-width="1" opacity=".7" stroke-dasharray="1 5"/>
+  <circle r="70.5" fill="none" stroke="url(#${k}m)" stroke-width="4"/>
+  <circle r="68.5" fill="none" stroke="#000" stroke-width="1.2" opacity=".7"/>
+  <circle r="67" fill="url(#${k}dome)"/><path d="M-46 -38 A60 60 0 0 1 22 -60 A70 70 0 0 0 -40 -20Z" fill="#fff" opacity=".28"/><circle cx="34" cy="40" r="4" fill="#fff" opacity=".35"/>
+  ${deco}</svg>`;
+}
+// Gambo e spalle dell'anello: sta dietro la gemma (il potere eroe è la pietra incastonata)
+function ringBand(cls,id){
+  const P=RING_PAL[cls]||RING_PAL.minatore, m=P.m, k='rb'+id+cls;
+  const gem=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r+1.4}" fill="url(#${k}m)" stroke="#000a" stroke-width=".7"/><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${k}g)"/><circle cx="${x-r*.35}" cy="${y-r*.35}" r="${r*.3}" fill="#fff" opacity=".75"/>`;
+  const both=f=>f(1)+f(-1);
+  let sh='';
+  if(cls==='minatore') sh=both(s=>`<g transform="scale(${s} 1)"><path d="M70 30 L84 18 L90 34 L84 50 Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/>${gem(90,44,4.5)}${gem(80,58,3.5)}<path d="M98 30 l3 -8 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3z" fill="${m[0]}" stroke="#0007" stroke-width=".6"/></g>`);
+  else if(cls==='sirena') sh=both(s=>`<g transform="scale(${s} 1)">${[0,1,2].map(i=>`<circle cx="${76+i*8}" cy="${40+i*7}" r="4.6" fill="url(#${k}p)" stroke="#0006" stroke-width=".5"/>`).join('')}<path d="M92 26 C102 22 106 34 98 38 C96 32 92 30 92 26Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/></g>`);
+  else if(cls==='adepto') sh=both(s=>`<g transform="scale(${s} 1)"><path d="M70 34 C86 16 104 22 108 32 C96 30 86 36 78 48Z" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/><path d="M74 40 C88 30 98 30 106 33" stroke="#3f2a10" stroke-width="1" fill="none" opacity=".7"/>${gem(86,52,4.5)}</g>`);
+  else if(cls==='traccia') sh=both(s=>`<g transform="scale(${s} 1)">${[0,1,2].map(i=>`<path d="M${74+i*10} ${28+i*8} l14 -6 l-6 12z" fill="url(#${k}m)" stroke="#000a" stroke-width=".7"/>`).join('')}${gem(84,48,4)}</g>`);
+  else if(cls==='incisore') sh=both(s=>`<g transform="scale(${s} 1)"><rect x="72" y="24" width="26" height="22" rx="4" transform="rotate(24 85 35)" fill="url(#${k}m)" stroke="#0008" stroke-width=".8"/>${[0,1,2].map(i=>`<line x1="${78+i*6}" y1="${27+i*3}" x2="${74+i*6}" y2="${40+i*3}" stroke="#8a6a1c" stroke-width="1.6"/>`).join('')}${gem(94,52,3.6)}</g>`);
+  else if(cls==='scudiera') sh=both(s=>`<g transform="scale(${s} 1)">${[0,1,2].map(i=>`<path d="M${80+i*5} ${20+i*13} C${70+i*3} ${14+i*13} ${62} ${18+i*12} ${58} ${24+i*11}" fill="none" stroke="url(#${k}m)" stroke-width="5" stroke-linecap="round"/><path d="M${58} ${24+i*11} l-5 2 l3 -6z" fill="${m[0]}"/>`).join('')}<path d="M80 20 C96 22 104 40 92 56 C88 44 84 34 80 20Z" fill="url(#${k}m)" stroke="#0009" stroke-width=".9"/></g>`);
+  return `<svg class="rband" viewBox="-130 -100 260 200" aria-hidden="true"><defs>
+    <linearGradient id="${k}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m[0]}"/><stop offset=".3" stop-color="${m[1]}"/><stop offset=".5" stop-color="${m[3]}"/><stop offset=".75" stop-color="${m[2]}"/><stop offset="1" stop-color="${m[1]}"/></linearGradient>
+    <linearGradient id="${k}v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${m[2]}"/><stop offset=".45" stop-color="${m[3]}"/><stop offset=".7" stop-color="${m[1]}"/><stop offset="1" stop-color="${m[4]}"/></linearGradient>
+    <radialGradient id="${k}g" cx=".35" cy=".35" r=".75"><stop offset="0" stop-color="${P.g2}"/><stop offset=".55" stop-color="${P.g}"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <radialGradient id="${k}p" cx=".35" cy=".35" r=".8"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#f3e6ef"/><stop offset="1" stop-color="#b7a3b5"/></radialGradient>
+  </defs>
+  <ellipse cx="0" cy="40" rx="104" ry="40" fill="none" stroke="#000" stroke-width="20" opacity=".45"/>
+  <ellipse cx="0" cy="40" rx="104" ry="40" fill="none" stroke="url(#${k}v)" stroke-width="15"/>
+  <ellipse cx="0" cy="40" rx="104" ry="40" fill="none" stroke="${m[0]}" stroke-width="1.4" opacity=".55" transform="translate(0 -5)"/>
+  <ellipse cx="0" cy="40" rx="104" ry="40" fill="none" stroke="#000" stroke-width="1" opacity=".5" transform="translate(0 6)"/>
+  ${sh}</svg>`;
+}
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
 function bindSet(){ const b=$('#bSet'); if(b) b.onclick=()=>settingsBox(); }
 function settingsBox(){
@@ -971,7 +1049,7 @@ function render(){
     const infoEl=`<div class="info"><b>${esc(pl.name)} · ${esc(HEROES[pl.cls].n)}${pl.mutated?' (Mutato)':''}</b>${!isMe&&vsAI&&G.aiDeck?`<small class="aideck">${G.aiDeck==='Mazzo base'?'Mazzo base':`Mazzo «${esc(G.aiDeck)}»`}</small>`:''}
         <div class="row" style="justify-content:flex-start;gap:6px"><span class="gra"><img src="art/gra_oro.svg" alt="GRA">${pl.gra}/${pl.graMax}</span>
         <span class="pill">Mazzo ${pl.deck.length}</span>${isMe?'':`<span class="pill">Mano ${pl.hand.length}</span>`}${pl.fatigue?`<span class="pill">Nebbia ${pl.fatigue}</span>`:''}${pl.esca?`<span class="pill" title="Il prossimo seguace occupa 2 slot">Esca attiva</span>`:''}${(pl.nsA||pl.nsD)?`<span class="pill" title="Eco dello Spirito: bonus permanente ai tuoi Spiriti futuri">Spiriti +${pl.nsA}/+${pl.nsD}</span>`:''}${pl.powerLock===pl.ownTurns&&pl.cls==='traccia'?`<span class="pill">Potere bloccato</span>`:''}</div>${coinsHtml(pl,isMe)}</div>`;
-    const powerEl=`<div class="power ${canP?'can':'off'} ${isMe&&sel&&sel.kind==='power'?'sel':''}" data-power="${isMe?'me':'opp'}" data-pw="${isMe?'me':'opp'}"><img src="${powerImg(pl)}" alt=""><span class="c">2</span></div>`;
+    const powerEl=`<div class="power pr-${pl.cls} ${canP?'can':'off'} ${isMe&&sel&&sel.kind==='power'?'sel':''}" data-power="${isMe?'me':'opp'}" data-pw="${isMe?'me':'opp'}"><img src="${powerImg(pl)}" alt="">${ringBand(pl.cls,isMe?'m':'o')}${ringSvg(pl.cls,isMe?'m':'o')}<span class="c">2</span></div>`;
     return `<div class="bar ${isMe?'me':''}">
       <div class="side l">${infoEl}</div>
       <div class="mid">${heroEl}${powerEl}</div>
