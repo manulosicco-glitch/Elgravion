@@ -944,6 +944,9 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 .tband svg{display:block;width:100%;height:100%}
 @media (prefers-reduced-motion:reduce){ .menu h1 .tcoin{animation:none} }
 @media (max-width:620px){ .tband{width:86vw} }
+
+/* su telefono restano visibili i pulsanti Accedi e Installa (senza scritta) */
+@media (max-width:620px){ .mside span.instw{display:contents!important} .mside span.instw>span{display:none} }
 </style>
 </head>
 <body>
