@@ -1200,6 +1200,24 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 .cpv.dorso-nera{background:repeating-linear-gradient(45deg,#1a1720 0 6px,#0e0c12 6px 12px);border-color:#c9a24b}
 .cpv.dorso-cremisi{background:radial-gradient(circle at 50% 40%,#ff4a5a,#9b111e 55%,#3a0008);border-color:#ffd77a}
 .chead .pill.coin{margin-left:auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;width:auto!important;height:auto!important;min-width:0!important;border-radius:8px!important;background:#0006!important;box-shadow:none!important;animation:none!important}.chead .pill.adam{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+/* ===== Telefono: testi fuori dalle carte un po' più piccoli, testi lunghi in riquadri scorrevoli ===== */
+@media (orientation:landscape) and (max-height:520px), (max-width:560px){
+  /* un passo più piccoli (circa 1 px): solo testi dell'interfaccia, mai le carte */
+  .menu .sub, .mcol, .menu>.note, .chead h2, .ctabs, .cfil, .chero, .gitem, .setgrid, .settitle, .pkinfo, .pkleft .pkcount, .cpacks,
+  .rkcard .note, .rkcard .rkstats, .rkinfo, .log, .prompt, .toast, .shtabs, .shnote, .shbody>h3, .shbody>.note, .shitem>b, .shitem>small, .shpk .note, .shsum, .shfoot,
+  #ov .box>h3, #ov .box>.note, #ov .box>.mtitle, .mm .note, .mmchoice, .rkend small, .endsub, .endstats, .endrew, .crinfo, .crnote{zoom:.93}
+  /* riquadri con tanto testo: più bassi e a scorrimento */
+  .pkinfo, .rkinfo{max-height:calc(100dvh - 72px);overflow-y:auto;overscroll-behavior:contain;flex:none}
+  .setgrid{max-height:calc(100dvh - 160px);overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
+  #ov .box>.note{max-height:34dvh;overflow-y:auto;overscroll-behavior:contain}
+  .chero{max-height:118px;overflow-y:auto;overscroll-behavior:contain;flex:none}
+  .gitem .gt{max-height:84px;overflow-y:auto;overscroll-behavior:contain}
+  .log{max-height:52dvh}
+  .mmchoice{max-height:60dvh;overflow-y:auto}
+  .pkinfo, .rkinfo, .setgrid, #ov .box>.note, .chero, .gitem .gt, .log, .mmchoice{scrollbar-width:thin;scrollbar-color:#c9a24b66 transparent}
+  .pkinfo::-webkit-scrollbar, .rkinfo::-webkit-scrollbar, .setgrid::-webkit-scrollbar, #ov .box>.note::-webkit-scrollbar, .chero::-webkit-scrollbar, .gitem .gt::-webkit-scrollbar, .log::-webkit-scrollbar{width:4px}
+  .pkinfo::-webkit-scrollbar-thumb, .rkinfo::-webkit-scrollbar-thumb, .setgrid::-webkit-scrollbar-thumb, #ov .box>.note::-webkit-scrollbar-thumb, .chero::-webkit-scrollbar-thumb, .gitem .gt::-webkit-scrollbar-thumb, .log::-webkit-scrollbar-thumb{background:#c9a24b66;border-radius:4px}
+}
 </style>
 </head>
 <body>
