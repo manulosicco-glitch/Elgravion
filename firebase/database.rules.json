@@ -22,7 +22,7 @@
       ".read": true,
       ".indexOn": ["rating"],
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && !root.child('config/rankedServer').val()"
+        ".write": "auth != null && auth.uid === $uid && root.child('config/rankedServer').val() !== true"
       }
     },
     "users": {
