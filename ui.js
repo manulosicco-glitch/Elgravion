@@ -322,6 +322,16 @@ function ringBand(cls,id){
   <ellipse cx="0" cy="40" rx="104" ry="40" fill="none" stroke="#000" stroke-width="1" opacity=".5" transform="translate(0 6)"/>
   ${sh}</svg>`;
 }
+// ======================= ACCOUNT (versione scaricabile, accesso con Google)
+let ACCT=null;
+function acctBtn(){ if(window.claude||!window.ELG_NET) return ''; return `<span class="instw"><button class="btn sm" id="bAcct" title="${ACCT?'Account: '+esc(ACCT):'Accedi con Google per giocare online'}">${ACCT?'👤':'🔑'}</button><span>${ACCT?esc(ACCT.split(' ')[0]).slice(0,12):'Accedi'}</span></span>`; }
+async function acctRefresh(){ if(!window.ELG_NET) return; try{ const u=await window.ELG_NET.currentUser(); const n=u?(u.displayName||'Cacciatore'):null; if(n!==ACCT){ ACCT=n; if($('.menu')&&!G) menu(); } }catch(e){} }
+document.addEventListener('click',async e=>{ const b=e.target.closest&&e.target.closest('#bAcct'); if(!b) return; e.preventDefault();
+  if(!ACCT){ try{ await window.ELG_NET.signIn(); await acctRefresh(); toast('Accesso effettuato'); }catch(err){ toast('Accesso non riuscito'+(err&&err.code?' ('+err.code+')':'')); } return; }
+  const d=modal(`<h3>Il tuo account</h3><div class="note" style="margin:0 auto 12px">Sei collegato come <b>${esc(ACCT)}</b>. Il tuo nome appare agli avversari e in classifica.</div><div class="row"><button class="btn" id="acOut">Esci</button><button class="btn" id="acOk">Chiudi</button></div>`);
+  $('#acOk').onclick=closeModal; $('#acOut').onclick=async()=>{ try{ await window.ELG_NET.signOut(); }catch(err){} ACCT=null; closeModal(); menu(); };
+});
+if(window.ELG_NET) setTimeout(acctRefresh,800);
 function setBtn(){ return `<button class="btn sm" id="bSet" title="Impostazioni">⚙</button>`; }
 function bindSet(){ const b=$('#bSet'); if(b) b.onclick=()=>settingsBox(); }
 function settingsBox(){
@@ -393,7 +403,7 @@ function menu(msg){
   G=null; NET&&NET.leave&&NET.leave(); NET=null; sel=null;
   app.innerHTML=`<div class="menu">
     <div class="mbg"><div class="mmap"></div><div class="mfog f1"></div><div class="mfog f2"></div><div class="members">${Array.from({length:26},(_,i)=>`<i style="left:${(i*37)%100}%;animation-delay:${(i*0.73)%9}s;animation-duration:${7+(i*1.3)%6}s"></i>`).join('')}</div></div>
-    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span></div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}</div>
+    <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span>${acctBtn()}</div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}</div>
     <header class="mhead"><div class="mtitle2"><span class="orn l">${TORN}</span><h1 aria-label="Elgravion"><span class="tw">ELGRAVI</span><img class="tcoin" src="art/gra_oro.svg" alt=""><span class="tw">N</span></h1><span class="orn r">${TORN}</span></div><div class="tband">${TBAND}</div><div class="sub">Gioco di carte · Primo Set</div></header>
     <div class="mgrid">
     <nav class="mcol left"><div class="mcolh">Grimorio</div>
@@ -420,7 +430,7 @@ function menu(msg){
       <button class="btn mbtn" id="bTut"><i>🕯</i><span>Tutorial</span></button>
     </nav>
     </div>
-    <div class="note" id="netmsg">${msg?esc(msg):(window.claude?'Online: chi crea la partita dà il codice all\'avversario, che apre questa stessa pagina dal suo account Claude (permesso almeno da Contributor).':'Versione scaricabile: gioca contro il computer, apri pacchetti e costruisci mazzi. L\'online arriverà presto.')}</div>
+    <div class="note" id="netmsg">${msg?esc(msg):(window.claude?'Online: chi crea la partita dà il codice all\'avversario, che apre questa stessa pagina dal suo account Claude (permesso almeno da Contributor).':window.ELG_NET?'Online: accedi con Google, poi crea una partita e dai il codice all\'avversario, oppure usa Cerca partita.':'Versione scaricabile: gioca contro il computer, apri pacchetti e costruisci mazzi. L\'online arriverà presto.')}</div>
     <div class="note mfoot">Tutte e sei le classi del primo set, con le carte neutrali. Ogni turno dura al massimo 1:30.</div>
   </div>`;
   app.querySelectorAll('.cls').forEach(e=>e.onclick=()=>{ const c=e.dataset.c; if(!canPlayCls(c)){ sfx('end'); return toast(`${HEROES[c].n} è bloccata: costruisci un mazzo valido in Mazzi con le carte che possiedi`); } chosenCls=c; menu(msg); });
@@ -506,7 +516,7 @@ async function findMatch(mode){
     d.querySelector('.row').innerHTML='<button class="btn" id="mmAI">Gioca contro il computer</button><button class="btn" id="mmClose">Chiudi</button>';
     $('#mmAI').onclick=()=>{ closeModal(); startLocal(); }; $('#mmClose').onclick=closeModal; };
   const room=await getRoom(); if(st.done) return;
-  if(!room) return offline((window.claude?'La ricerca online non è disponibile in questa vista: apri il gioco dal suo link su claude.ai, con un account che può giocare online.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  if(!room) return offline((window.claude?'La ricerca online non è disponibile in questa vista: apri il gioco dal suo link su claude.ai, con un account che può giocare online.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
   let mm; try{ mm=await room.join('elg-mm-'+(ranked?'rk':'am')+'-v'+MATCH_VER); }catch(e){ return offline('Impossibile entrare nella sala d\'attesa ('+(e.code||'errore')+').'); }
   if(st.done){ try{ mm.leave(); }catch(e){} return; }
   st.mm=mm; const myId=Math.random().toString(36).slice(2,10);
@@ -1641,9 +1651,10 @@ function tick(){
 setInterval(tick,500);
 
 // ======================= ONLINE (stessa partita su due dispositivi, si scambiano solo le mosse)
+function netSrc(){ return window.claude&&window.claude.use?window.claude:(window.ELG_NET||null); }
 async function getRoom(){
-  if(!window.claude||!window.claude.use) return null;
-  try{ return await window.claude.use('room'); }catch(e){ return null; }
+  const n=netSrc(); if(!n) return null;
+  try{ return await n.use('room'); }catch(e){ return null; }
 }
 function setNetMsg(s){ const n=$('#netmsg'); if(n) n.textContent=s; }
 function myCosm(){ return {back:SET.back||null,frame:SET.frame||null}; }
@@ -1658,7 +1669,7 @@ function netWatch(net){
 async function hostOnline(codeArg,opt){
   opt=opt||{};
   setNetMsg('Collegamento…');
-  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
   const code=codeArg||Math.random().toString(36).slice(2,7);
   let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
   const net={host:true,code,r,log:[],seen:new Set(),applied:0,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
@@ -1690,7 +1701,7 @@ async function joinOnline(code,opt){
   opt=opt||{};
   if(!/^[a-z0-9]{4,6}$/.test(code)) return setNetMsg('Scrivi il codice della partita (5 caratteri).');
   setNetMsg('Collegamento…');
-  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
   let r; try{ r=await room.join('elg-'+code); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
   const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
   NET=net; me=1; vsAI=false;
@@ -1813,8 +1824,8 @@ function rankScreen(){
   app.querySelectorAll('.rkcosm input').forEach(i=>i.onchange=()=>{ SET[i.name]=i.value||null; saveSet&&saveSet(); });
   lbLoad();
 }
-async function getDb(){ try{ return window.claude&&window.claude.use? await window.claude.use('db'):null; }catch(e){ return null; } }
-async function getUser(){ try{ return window.claude&&window.claude.use? await window.claude.use('user'):null; }catch(e){ return null; } }
+async function getDb(){ try{ const n=netSrc(); return n? await n.use('db'):null; }catch(e){ return null; } }
+async function getUser(){ try{ const n=netSrc(); return n? await n.use('user'):null; }catch(e){ return null; } }
 // scrive il proprio rango nel database condiviso (se disponibile), per la classifica
 let RANK_PUSHING=false, RANK_PUSH_AGAIN=false;
 async function rankPush(){
@@ -1845,7 +1856,7 @@ function findMatchChooser(){
     <button class="mmopt" id="mmFr"><b>🤝 Amichevole</b><small>Partita contro un altro giocatore online. Non cambia il tuo rango.</small></button>
     <button class="mmopt rk" id="mmRk" style="--tc:${TIERS[r.tier].col}">${manifestHtml(r)}<span><b>⚔ Classificata</b><small>${esc(rankName(r))} · contro un giocatore di grado simile. Vinci pendenti, sali di taglia.</small></span></button>
   </div><div class="row"><button class="btn" id="mmX">Annulla</button></div>`);
-  $('#mmX').onclick=closeModal; $('#mmFr').onclick=()=>findMatch('amichevole'); $('#mmRk').onclick=()=>findMatch('classificata');
+  $('#mmX').onclick=closeModal; $('#mmFr').onclick=()=>findMatch('amichevole'); $('#mmRk').onclick=()=>{ if(!window.claude&&window.ELG_NET&&!window.ELG_NET.ranked){ toast('La Classificata arriva a breve, con l\'arbitro sul server che la protegge dai trucchi. Intanto puoi giocare in Amichevole.'); return; } findMatch('classificata'); };
 }
 
 menu();

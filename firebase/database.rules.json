@@ -1,0 +1,38 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": "auth != null",
+        ".write": "auth != null && !newData.exists()",
+        "peers": {
+          "$peer": {
+            ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid) && (!newData.exists() || newData.child('uid').val() === auth.uid)"
+          }
+        },
+        "msgs": {
+          ".indexOn": ["t"],
+          "$msg": {
+            ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid && newData.child('t').val() === now",
+            ".validate": "newData.hasChildren(['topic', 'from', 'uid', 't']) && newData.child('topic').isString() && newData.child('topic').val().length < 12"
+          }
+        }
+      }
+    },
+    "ranks": {
+      ".read": true,
+      ".indexOn": ["rating"],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && !root.child('config/rankedServer').val()"
+      }
+    },
+    "users": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length < 40" },
+        "$other": { ".validate": false }
+      }
+    },
+    "config": { ".read": true, ".write": false }
+  }
+}

@@ -1,0 +1,23 @@
+name: Pubblica il server Firebase
+on:
+  push:
+    branches: [main]
+    paths: ['firebase/**']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.FIREBASE_PROJECT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Credenziali
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+      - name: Pubblica regole (e funzioni, se presenti)
+        working-directory: firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          if [ -d functions ]; then (cd functions && npm ci); fi
+          npx -y firebase-tools@latest deploy --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --force
