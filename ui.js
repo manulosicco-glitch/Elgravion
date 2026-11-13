@@ -213,12 +213,18 @@ const SPEED_MULT={lenta:1.7,normale:1,veloce:0.35};
 // ======================= SCHERMO INTERO
 const FS_EL=()=>document.fullscreenElement||document.webkitFullscreenElement;
 function fsBtn(){ return `<button class="btn sm fsb" id="bFs" title="Schermo intero (F)">${FS_EL()?'🗗':'⛶'}</button>`; }
+const LPQ=window.matchMedia?matchMedia('(orientation:landscape) and (max-height:520px)'):null;
+function LP(){ return !!(LPQ&&LPQ.matches); }
+function lockLand(){ try{ const o=screen.orientation; if(o&&o.lock&&matchMedia('(pointer:coarse)').matches) o.lock('landscape').catch(()=>{}); }catch(e){} }
+if(LPQ&&LPQ.addEventListener) LPQ.addEventListener('change',()=>{ if(G) setTimeout(()=>{ try{ render(); }catch(e){} },80); });
+window.addEventListener('orientationchange',()=>{ if(G) setTimeout(()=>{ try{ render(); }catch(e){} },250); });
+try{ if(matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) lockLand(); }catch(e){}
 function toggleFs(){
   const de=document.documentElement;
   if(FS_EL()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); return; }
   const req=de.requestFullscreen||de.webkitRequestFullscreen;
   if(!req || document.fullscreenEnabled===false){ toast('Lo schermo intero non è permesso qui: apri il gioco in una scheda a sé e riprova'); return; }
-  try{ const r=req.call(de,{navigationUI:'hide'}); if(r&&r.catch) r.catch(()=>toast('Il browser non ha permesso lo schermo intero')); }catch(e){ toast('Il browser non ha permesso lo schermo intero'); }
+  try{ const r=req.call(de,{navigationUI:'hide'}); if(r&&r.then) r.then(lockLand,()=>{}); if(r&&r.catch) r.catch(()=>toast('Il browser non ha permesso lo schermo intero')); }catch(e){ toast('Il browser non ha permesso lo schermo intero'); }
 }
 document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('#bFs'); if(b){ e.preventDefault(); toggleFs(); } });
 ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{ document.querySelectorAll('#bFs').forEach(b=>b.textContent=FS_EL()?'🗗':'⛶'); if(G) setTimeout(()=>{ try{ fitHand(); render(); }catch(e){} },120); }));
@@ -1108,7 +1114,7 @@ function render(){
   const flipPrev=flipCapture();
   app.innerHTML=`<div class="table">
     ${heroBar(o,false)}
-    <div style="display:flex;justify-content:center;padding:2px">${oppHand}</div>
+    <div class="ohw" style="display:flex;justify-content:center;padding:2px">${oppHand}</div>
     <div class="board">${histHtml()}${fogCounter()}${slotRow(o,false)}<div class="divider"><span></span></div>${slotRow(p,true)}</div>
     ${heroBar(p,true)}
     <div class="hand">${handHtml||'<span class="pill">Mano vuota</span>'}</div>
@@ -1204,7 +1210,7 @@ function bigCard(c,u){
 let peekUid=null, peekMoved=false, peekTimer=null, suppressClick=false;
 function fitHand(){
   const hd=$('.hand'); if(!hd) return; const cs=[...hd.querySelectorAll('.mc')];
-  const fan=window.innerWidth>760; hd.classList.toggle('fan',fan);
+  const fan=window.innerWidth>760||LP(); hd.classList.toggle('fan',fan);
   cs.forEach(c=>{ c.style.marginLeft='0px'; c.style.removeProperty('--fan'); });
   if(cs.length){
     const w=cs[0].offsetWidth, avail=Math.min(hd.clientWidth-16, fan?w*7.2:1e9), n=cs.length, need=n*w+(n-1)*6;

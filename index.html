@@ -959,9 +959,171 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 .shopit .soon{font-family:Cinzel;font-size:11px;color:#1a1420;background:var(--gold);border-radius:8px;padding:2px 8px}
 .langrow .btn.on{box-shadow:0 0 0 2px var(--gold2),0 0 12px #c9a24b88}
 @media (max-width:620px){ .shopbtn{left:10px;bottom:10px;padding:6px 10px} .shopbtn span:not(.si){display:none} }
+/* ===== Telefono in orizzontale ===== */
+#rot{display:none}
+@media (orientation:portrait) and (max-width:600px) and (pointer:coarse){
+  body:has(.table) #rot{display:flex;position:fixed;inset:0;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,#2c2236,#0b090d);color:var(--gold2,#f1d27e);font:700 17px Cinzel,serif;text-align:center;padding:30px;letter-spacing:.06em}
+  #rot i{font-style:normal;font-size:54px;animation:rotph 2.2s ease-in-out infinite}
+  #rot small{font:400 13px Georgia,serif;color:#cdbfa8;letter-spacing:0}
+}
+@keyframes rotph{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:landscape) and (max-height:520px){
+  :root{--sz:max(44px,min(calc((100dvh - 150px) / 3.05),calc((100vw - 250px) / 7.4)))!important;--sw:calc(var(--sz) * 1.1)!important;--sh:1.38!important}
+  body::after{height:60px!important}
+  .table{padding-bottom:0!important;height:100dvh}
+  /* barra avversario */
+  .bar{padding:3px 10px!important;gap:6px;min-height:0}
+  .bar .mid{gap:10px!important}
+  .hero{width:50px!important;height:50px!important;border-width:3px!important}
+  .hero .pf{font-size:15px!important;min-width:30px!important;padding:1px 4px!important;right:-12px!important;bottom:-6px!important}
+  .hero .ha{width:22px!important;height:22px!important;font-size:12px!important;left:-6px!important;bottom:-6px!important}
+  .hero .ar{font-size:11px!important}
+  .power{width:38px!important;height:38px!important;margin-left:14px!important}
+  .power .c{width:19px!important;height:19px!important;font-size:11px!important;top:-8px!important;left:-8px!important}
+  .info{font-size:11px}
+  .info b{font-size:11.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .info .row{gap:4px!important;margin:2px 0!important}
+  .info .row .pill,.info .row span{font-size:10.5px;padding:1px 6px}
+  .info .gra img{width:15px;height:15px}
+  .aideck{display:none!important}
+  .bar .side.r{gap:5px!important}
+  .bar .side.r .btn.sm{min-width:30px;height:28px;padding:0 6px;font-size:11px}
+  #bLog,#bMenu,#bResa{font-size:10px!important;letter-spacing:.04em}
+  #bResa{height:28px!important;padding:0 7px!important}
+  .coins{gap:2px!important} .coin{width:11px!important;height:11px!important} .coin.locked{width:9px!important;height:9px!important}
+  /* mano avversaria sopra, accanto all'eroe */
+  .ohw{position:absolute;top:2px;left:auto;right:calc(50% + 58px);height:0;padding:0!important;z-index:4;pointer-events:none}
+  .oppHand .back{width:22px!important;height:31px!important;margin-left:-8px}
+  /* tavolo */
+  .board{padding:2px 4px!important;flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+  .brow{gap:6px!important}
+  .brow.emorow .slots{grid-template-rows:12px!important}
+  .brow.emorow{min-height:0}
+  .emk{font-size:9px}
+  .divider{margin:1px 0!important;height:10px}
+  .pslot{width:calc(var(--sz) * .72)!important;height:calc(var(--sz) * 1.0)!important;font-size:8px}
+  .pslot .lbl{font-size:8px}
+  .unit .nm{font-size:9px!important}
+  .unit .a,.unit .d{width:20px!important;height:20px!important;font-size:12px!important}
+  .hist{left:4px!important;gap:6px!important}
+  .ht{width:34px!important;height:34px!important;border-radius:7px}
+  .ht .hb{width:15px!important;height:15px!important;font-size:9px!important;left:-5px!important;top:-5px!important}
+  .ht .hs{width:16px!important;height:16px!important;right:-5px!important;bottom:-5px!important}
+  .fogctr{right:4px!important;width:46px!important;padding:3px 2px!important}
+  .fogctr b{font-size:17px!important} .fogctr i{font-size:13px!important} .fogctr small{font-size:7.5px!important}
+  /* la mia barra: eroe a sinistra, comandi a destra, mano al centro */
+  .bar.me{display:flex!important;align-items:center;padding:3px 10px 4px!important;min-height:58px}
+  .bar.me .mid{order:0;flex:none}
+  .bar.me .side.l{order:1;flex:0 1 auto;min-width:0;max-width:170px;margin-left:10px}
+  .bar.me .side.l .info{width:auto!important}
+  .bar.me .side.l .info b{display:none}
+  .bar.me .side.r{order:2;margin-left:auto;flex:none;flex-direction:column-reverse!important;align-items:stretch!important;gap:3px!important}
+  .bar.me .side.r .timer{text-align:center}
+  .bar.me .coins .coin{width:13px!important;height:13px!important}
+  .endbtn{padding:7px 12px!important;font-size:12px!important;min-width:0!important}
+  .timer{font-size:10px!important;padding:3px 6px!important}
+  /* mano a ventaglio compatta (vale anche sotto i 761px di larghezza) */
+  .table{position:relative}
+  .hand{position:fixed!important;padding:0!important;align-items:flex-end;justify-content:center;z-index:22;pointer-events:none;min-height:0!important;display:flex}
+  .hand .mc,.hand>.pill{pointer-events:auto}
+  .hand.fan .mc{transform:var(--fan);transform-origin:50% 130%;transition:transform .22s cubic-bezier(.22,.9,.3,1)}
+  .hand.fan .mc.hv,.hand.fan .mc.peekon{z-index:80!important;box-shadow:0 0 0 2px #fff8,0 14px 26px #000!important}
+  .bar.me{position:relative;z-index:3}
+  .hand{left:max(200px,25vw)!important;right:max(140px,18vw)!important;bottom:-40px!important;height:130px!important;border:0!important;background:none!important;box-shadow:none!important}
+  .bar.me .side.l .row .pill{display:none}
+  .hand::before{display:none!important}
+  .hand.fan .mc{width:84px!important;height:120px!important;box-shadow:0 4px 9px #000b!important}
+  .hand.fan .mc img.ar,.hand.fan .mc .ph{height:50px!important}
+  .hand.fan .mc .nm{font-size:8.5px!important;max-height:22px} .hand.fan .mc .tx{font-size:7px!important}
+  .hand.fan .mc .cost{width:22px!important;height:22px!important;font-size:12px!important}
+  .hand.fan .mc .a,.hand.fan .mc .d{width:18px!important;height:18px!important;font-size:11px!important}
+  .hand.fan .mc .mbot{height:18px!important}
+  .hand.fan .mc.hv,.hand.fan .mc.peekon{transform:translateY(-118px) scale(1.75) rotate(0deg)!important}
+  .hand.fan .mc.selh{transform:var(--fan) translateY(-30px)!important}
+  /* banner, prompt, diario */
+  .prompt{top:auto!important;bottom:70px!important;font-size:12px!important;padding:5px 10px!important}
+  .turnban b{font-size:24px!important} .turnban div{padding:8px 26px!important}
+  .log{max-height:60dvh}
+  .box{max-height:94dvh;overflow:auto}
+  /* mulligan */
+  .box.mull{padding:6px 12px 8px!important;width:min(96vw,760px)!important}
+  .box.mull::before,.box.mull::after{width:30px!important;height:30px!important}
+  .mull .mtitle{margin:0!important}
+  .mull .mtitle h3{font-size:16px!important;margin:0!important}
+  .mull .note{font-size:11px!important;margin:0 0 4px!important}
+  .mullcards{flex-wrap:nowrap!important;gap:10px!important;--mh:calc(100dvh - 156px)}
+  .mslot{width:auto!important;gap:3px!important}
+  .mslot .cc{width:calc(var(--mh) * .7)!important;height:var(--mh)!important}
+  .mslot .cc .cart{height:calc(var(--mh) * .4)!important}
+  .mslot .cc .tplate{display:none!important}
+  .mslot .cc .cnm{font-size:11px!important;padding:2px 4px!important;line-height:1.1}
+  .mslot .cc .ctx{font-size:9.5px!important;line-height:1.2;padding:2px 5px!important}
+  .mslot .cc .cbot{transform:scale(.8);transform-origin:50% 100%}
+  .mtag{font-size:10px!important;padding:1px 8px!important}
+  .mfoot .btn{padding:6px 18px!important;font-size:14px!important}
+  .mfoot{margin-top:4px!important;padding-top:4px!important}
+  .mlbl,.mull .orn{display:none!important}
+}
+/* fluidità su touch: niente animazioni decorative continue che ridisegnano ombre */
+@media (pointer:coarse){
+  .hero::after,.divider span,.oppHand .back,.pslot,.coin.full,.mmap,.mfog,.unit.lasc::before,.tcoin{animation:none!important}
+  .mfog{filter:none!important;opacity:.6}
+  .mmap{filter:sepia(.6)!important}
+  .btn:not([disabled])::after{display:none}
+  .hand.fan .mc{transition:transform .2s cubic-bezier(.22,.9,.3,1)!important}
+  html,body{touch-action:manipulation;overscroll-behavior:none}
+}
+/* menu in orizzontale su telefono */
+@media (orientation:landscape) and (max-height:520px){
+  .menu{padding:8px 10px 10px!important;gap:6px!important}
+  .menu h1{font-size:30px!important;letter-spacing:.16em!important;padding-left:.16em!important}
+  .mtitle2{gap:8px!important} .mtitle2 .orn{width:60px!important}
+  .tband{width:min(340px,50vw)!important;height:10px!important;margin-top:2px!important}
+  .menu .sub{font-size:9.5px!important;letter-spacing:.22em!important;margin-top:2px!important}
+  .mside{top:8px!important;gap:3px!important;flex-direction:row!important}
+  .mside.l{left:8px!important} .mside.r{right:8px!important}
+  .mside .btn.sm{width:34px!important;height:34px!important;font-size:15px!important;padding:0!important}
+  .mside span:not(.instw){display:none!important}
+  .mside span.instw{display:contents!important} .mside span.instw>span{display:none!important}
+  .mhead{padding:0 160px!important}
+  .mgrid{grid-template-columns:150px minmax(0,1fr) 180px!important;grid-template-areas:'l c r'!important;gap:10px!important;align-items:start!important}
+  .mcol{padding:8px!important;gap:5px!important}
+  .mcolh{font-size:10px!important;padding-bottom:3px!important}
+  .mcol .mbtn{padding:6px 8px!important;font-size:12px!important;min-height:0}
+  .mcol .mbtn.big{font-size:13px!important;padding:8px!important}
+  .mcol .mbtn i{font-size:14px}
+  .mcol .diffnote{font-size:11px!important;margin:0!important}
+  .mpick{font-size:10px!important;margin:0 0 2px!important}
+  .classes{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px 8px!important;justify-content:center}
+  .cls{width:auto!important;max-width:150px;padding-top:10px!important;justify-self:center}
+  .cls .frame{padding:4px!important;border-radius:60px 60px 8px 8px!important}
+  .cls .arch{height:68px!important;border-radius:56px 56px 5px 5px!important}
+  .cls .medal{transform:scale(.72);top:-4px!important}
+  .cls .cr{width:10px!important;height:10px!important}
+  .cls .plate{margin:-8px 4px 0!important;padding:4px 4px 3px!important}
+  .cls .plate b{font-size:10.5px!important;line-height:1.1;display:block}
+  .cls .plate small{font-size:8.5px!important;line-height:1.1}
+  .shopbtn{left:8px!important;bottom:8px!important;padding:5px 8px!important;font-size:12px!important}
+  .shopbtn span:not(.si){display:none}
+  .members{display:none}
+  #ov .box:has(> .big){display:grid!important;grid-template-columns:auto minmax(0,1fr);grid-auto-rows:min-content;align-content:center;column-gap:16px;row-gap:8px;width:min(94vw,640px)!important;max-height:94dvh;padding:12px!important}
+  #ov .box:has(> .big) > .big{grid-row:1 / span 9;zoom:.8;margin:0!important;align-self:center}
+  #ov .box:has(> .big) > :not(.big){grid-column:2}
+  #ov .box:has(> .big) > .row{flex-direction:column!important;align-items:stretch!important;gap:6px!important;margin:0!important}
+  #ov .box:has(> .big) > .row .btn{width:100%;padding:8px 10px!important;font-size:13px!important}
+  #ov .box:has(> .big) > .note{font-size:11.5px!important;margin:0!important}
+  .mcol{max-height:calc(100dvh - 96px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+  .mcol::-webkit-scrollbar{display:none}
+  .rkw{padding:5px 6px!important;gap:6px!important}
+  .rkw svg,.rkw .mf,.rkw>:first-child{max-width:34px;max-height:44px}
+  .rkwt b{font-size:12px!important} .rkwt small{font-size:9.5px!important}
+  .mjoin{gap:4px!important} .mjoin input{width:70px!important;padding:5px!important;font-size:12px!important} .mjoin .btn{padding:5px 8px!important;font-size:11px!important}
+  .menu>.note{font-size:10.5px!important;margin:0!important}
+}
 </style>
 </head>
 <body>
+<div id="rot"><i>📱</i>Ruota il telefono in orizzontale<small>Elgravion si gioca col telefono in orizzontale</small></div>
 <div id="app"></div>
 <script src="fbconfig.js"></script>
 <script src="fbnet.js"></script>

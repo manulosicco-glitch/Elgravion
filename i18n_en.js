@@ -239,6 +239,7 @@ words: {
 },
 // ---------- Interface: exact texts
 ui: {
+"Ruota il telefono in orizzontale":"Rotate your phone to landscape","Elgravion si gioca col telefono in orizzontale":"Elgravion is played with your phone in landscape",
 "Gioco di carte · Primo Set":"Card game · First Set","Scegli il tuo eroe":"Choose your hero","Grimorio":"Grimoire","Battaglia":"Battle",
 "Collezione":"Collection","Mazzi":"Decks","Pacchetti":"Packs","Glossario":"Glossary","Tutorial":"Tutorial","Negozio":"Shop",
 "Gioca contro il computer":"Play against the computer","Cerca partita":"Find match","Amichevole con codice":"Friendly with code","Unisciti":"Join","CODICE":"CODE",
