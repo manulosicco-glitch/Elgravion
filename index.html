@@ -1120,6 +1120,28 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
   .mjoin{gap:4px!important} .mjoin input{width:70px!important;padding:5px!important;font-size:12px!important} .mjoin .btn{padding:5px 8px!important;font-size:11px!important}
   .menu>.note{font-size:10.5px!important;margin:0!important}
 }
+/* overlay sempre scorrevole: i pulsanti non finiscono mai fuori schermo */
+.ov{overflow-y:auto;overscroll-behavior:contain;align-items:flex-start}
+.ov>.box{margin-top:auto;margin-bottom:auto;flex:none}
+@media (orientation:landscape) and (max-height:520px){
+  .ov{padding:6px}
+  .box.endbox{max-width:min(96vw,640px)!important}
+  .endfx{display:grid!important;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;align-items:center;padding:10px 14px!important}
+  .endfx>*:not(.endmvp):not(.endrays):not(i){grid-column:1}
+  .endmvp{grid-column:2;grid-row:1 / span 8;gap:3px!important}
+  .endhero{width:56px!important;height:56px!important}
+  .endtitle{font-size:28px!important;margin:2px 0!important;letter-spacing:4px!important}
+  .endsub{font-size:11px!important;margin-bottom:4px!important}
+  .endstats{gap:5px!important;margin:0 auto 6px!important}
+  .endstats>div{padding:3px!important} .endstats b{font-size:16px!important} .endstats small{font-size:9px!important}
+  .mvpcard{width:118px!important} .mvplab{font-size:11px!important} .mvpinfo{font-size:11px!important}
+  .endrew{font-size:12px!important;margin-top:4px!important;padding:4px 10px!important}
+  .endbtns{margin-top:6px!important}
+  .endbtns .btn{padding:7px 14px!important}
+}
+.emoinfo .efo{margin-top:5px;padding-top:4px;border-top:1px dashed #ffffff22;color:#a99d8e;font-size:10.5px}
+.emoinfo .efo.on{color:#ffe08a}
+.emoinfo .efo b{color:inherit}
 </style>
 </head>
 <body>

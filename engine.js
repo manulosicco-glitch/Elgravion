@@ -370,6 +370,9 @@ function analizza(g,p){
 }
 
 // ---------- Costi
+const FOCUS_MIN=3;
+// Focus: lo sconto di 1 GRA sugli slot d'Emozione si attiva solo dal 3° slot d'Emozione
+function focusOn(p){ return p.slots.filter(s=>s.emo).length>=FOCUS_MIN; }
 function costOf(g,p,h,slot){
   const c=card(h.n); if(h.free) return 0;
   let k=c.c;
@@ -378,7 +381,7 @@ function costOf(g,p,h,slot){
   if(c.n==='Colosso Runico') k-=p.innesti;
   if(slot!=null && c.t!=='Incanto' && c.t!=='Rituale' && c.cl===p.cls && c.n!=="L'Usurpatore"){
     const sl = c.t==='Dominio'?[slot,slot+1]:[slot];
-    if(sl.every(i=>p.slots[i]&&p.slots[i].emo)) k--;
+    if(focusOn(p) && sl.every(i=>p.slots[i]&&p.slots[i].emo)) k--; // Focus
   }
   return Math.max(0,k);
 }
@@ -1218,6 +1221,6 @@ function deckCheck(cls,list){
   const rules=[[tot===DECK_SIZE,`${tot}/${DECK_SIZE} carte`],[leg>=1,'Almeno 1 leggendaria'],[com>=4,'Almeno 4 comuni'],[inc>=1,'Almeno 1 Incanto'],[rit>=1,'Almeno 1 Rituale']];
   return {ok:!errs.length&&rules.every(r=>r[0]),tot,rules,errs};
 }
-const API={STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
+const API={FOCUS_MIN,focusOn,STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
 if(typeof module!=='undefined') module.exports=API; else root.Engine=API;
 })(this);
