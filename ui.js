@@ -639,7 +639,7 @@ async function findMatch(mode,t0){
     d.querySelector('.row').innerHTML='<button class="btn" id="mmAI">Gioca contro il computer</button><button class="btn" id="mmClose">Chiudi</button>';
     $('#mmAI').onclick=()=>{ closeModal(); startLocal(); }; $('#mmClose').onclick=closeModal; };
   const room=await getRoom(); if(st.done) return;
-  if(!room) return offline((window.claude?'La ricerca online non è disponibile in questa vista: apri il gioco dal suo link su claude.ai, con un account che può giocare online.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  if(!room) return offline((window.claude?'La ricerca online non è disponibile in questa vista: apri il gioco dal suo link su claude.ai, con un account che può giocare online.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
   let mm; try{ mm=await room.join('elg-mm-'+(ranked?'rk':'am')+'-v'+MATCH_VER); }catch(e){ return offline('Impossibile entrare nella sala d\'attesa ('+(e.code||'errore')+').'); }
   if(st.done){ try{ mm.leave(); }catch(e){} return; }
   st.mm=mm; const myId=Math.random().toString(36).slice(2,10);
@@ -949,7 +949,7 @@ function collection(){
   const h=HEROES[COL.cls];
   const tabs=COL_TABS.map(k=>`<button class="ctab ${COL.cls===k?'on':''}" data-t="${k}" style="--uc:${CLS_COLOR[k]}">${k==='neutrali'?'<span class="nz">◆</span>':`<img src="art/simboli/${k}.svg" alt="">`}<span>${esc(CLASSES[k].short||CLASSES[k].name)}</span></button>`).join('');
   const sel2=(id,val,opts)=>`<select id="${id}">${opts.map(([v,l])=>`<option value="${v}" ${String(val)===String(v)?'selected':''}>${l}</option>`).join('')}</select>`;
-  app.innerHTML=`<div class="coll">
+  app.innerHTML=`<div class="coll colls">
     <div class="chead"><button class="btn sm" id="cBack">‹ Menu</button><h2>Collezione</h2>${ownStats(COL.cls,list.length)}</div>
     <div class="ctabs">${tabs}</div>
     ${h?`<div class="chero" style="--uc:${CLS_COLOR[COL.cls]}"><img class="cp" src="${h.img}" alt="" data-hero="${COL.cls}"><div class="ci"><b>${esc(h.n)}</b><small>${esc(h.reg)} · Emozione: ${esc(h.e)}</small>
@@ -1846,7 +1846,7 @@ function netWatch(net){
 async function hostOnline(codeArg,opt){
   opt=opt||{};
   setNetMsg('Collegamento…');
-  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
   const code=codeArg||Math.random().toString(36).slice(2,7);
   const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
   let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
@@ -1888,7 +1888,7 @@ async function joinOnline(code,opt){
   opt=opt||{};
   if(!opt.mode && !/^[a-z0-9]{4,6}$/.test(code)) return setNetMsg('Scrivi il codice della partita (5 caratteri).');
   setNetMsg('Collegamento…');
-  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
   const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
   let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
   const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
@@ -2124,7 +2124,7 @@ async function rankPush(){
 let LB_CACHE=null;
 async function lbLoad(){
   const box=()=>$('#rkLb'); const fail=t=>{ const b=box(); if(b) b.innerHTML=`<div class="note">${t}</div>`; };
-  const db=await getDb(); if(!db) return fail((window.claude?'La classifica condivisa non è disponibile in questa vista: apri il gioco dal suo link su claude.ai con un account che può giocare online.':'Il gioco online e la Classificata arriveranno presto nella versione scaricabile. Intanto puoi giocare contro il computer.'));
+  const db=await getDb(); if(!db) return fail((window.claude?'La classifica condivisa non è disponibile in questa vista: apri il gioco dal suo link su claude.ai con un account che può giocare online.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
   const u=await getUser(); const myId=u&&await u.id();
   const to=setTimeout(()=>fail('La classifica non risponde: riprova più tardi.'),10000);
   try{
