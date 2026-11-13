@@ -879,6 +879,13 @@ async function openPackAnim(){
   let res; if(ACC()){ const r=await econDo('openPack'); if(!r) return; res=r.res.cards; bonusToast(r.res.bonus); } else res=openPack();
   if(!res) return; sfx('rip'); revealCards(res,{pack:true});
 }
+// effetto della carta leggendaria: raggi cremisi e viola che girano, scintille, lampo e scossa
+function legendFx(el,box){
+  el.classList.add('leg'); const fx=document.createElement('div'); fx.className='legfx';
+  let sp=''; for(let k=0;k<18;k++){ const a=k/18*Math.PI*2+Math.random()*.3, dist=90+Math.random()*90; sp+=`<i style="--sx:${Math.round(Math.cos(a)*dist)}px;--sy:${Math.round(Math.sin(a)*dist)}px;--sd:${(Math.random()*.25).toFixed(2)}s;--sc:${k%2?'#dc143c':'#a855f7'}"></i>`; }
+  fx.innerHTML=`<div class="rays"></div><div class="core"></div>${sp}`; el.insertBefore(fx,el.firstChild);
+  box.classList.add('legflash','legshake'); setTimeout(()=>box.classList.remove('legflash','legshake'),1100);
+}
 function revealCards(res,opt){
   opt=opt||{};
   const d=modal(`<div class="pkopen">${opt.title?`<h3 class="pktitle">${esc(opt.title)}</h3>`:''}${opt.pack?packArt(true,opt.packCls):''}<div class="pkcards ${res.length>6?'many':''}"></div><div class="row pkbtns"></div></div>`,'pkbox'); d.dataset.lock=1;
@@ -886,7 +893,8 @@ function revealCards(res,opt){
   if(pk) pk.classList.add('shake');
   setTimeout(()=>{ if(pk){ pk.classList.add('burst'); sfx('burst'); setTimeout(()=>pk.remove(),460); }
     const cards=box.querySelector('.pkcards');
-    cards.innerHTML=res.map((x,i)=>`<div class="pkc r-${x.r}" data-i="${i}" style="--rc:${RAR_COL[x.r]};animation-delay:${i*0.07}s"><div class="pkin"><div class="pkback"><div class="pkbk"><img src="art/gra_oro.svg" alt=""></div></div><div class="pkface">${colCard(CARDS[x.n],'')}${x.nuova?'<div class="pktag new">Nuova!</div>':x.extra?`<div class="pktag dup">+${x.extra} ${x.adam?AI_:GI}</div>`:''}</div></div></div>`).join('');
+    if(opt.pack){ for(let i=res.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [res[i],res[j]]=[res[j],res[i]]; } }
+    cards.innerHTML=res.map((x,i)=>`<div class="pkc" data-i="${i}" style="animation-delay:${i*0.07}s"><div class="pkin"><div class="pkback"><div class="pkbk"><img src="art/gra_oro.svg" alt=""></div></div><div class="pkface">${colCard(CARDS[x.n],'')}${x.nuova?'<div class="pktag new">Nuova!</div>':x.extra?`<div class="pktag dup">+${x.extra} ${x.adam?AI_:GI}</div>`:''}</div></div></div>`).join('');
     const left=new Set(res.map((_,i)=>i));
     const btns=box.querySelector('.pkbtns');
     const done=()=>{ const o=ownLoad();
@@ -895,10 +903,13 @@ function revealCards(res,opt){
       const m=$('#pkMore'); if(m) m.onclick=()=>openPackAnim();
       const b=$('#pkBuyMore'); if(b) b.onclick=async()=>{ if(await buyPackX()){ sfx('coin'); openPackAnim(); } };
       $('#pkDone').onclick=()=>packsScreen(); };
-    const flip=i=>{ if(!left.has(i)) return; left.delete(i); const el=cards.querySelector(`[data-i="${i}"]`); el.classList.add('flip'); const r=res[i].r;
-      sfx(r==='Leggendaria'?'leg':r==='Epica'?'epic':r==='Rara'?'rare':'flip');
-      if(r==='Leggendaria'){ box.classList.add('legflash'); setTimeout(()=>box.classList.remove('legflash'),900); }
-      if(!left.size) done(); };
+    const flip=i=>{ if(!left.has(i)) return; left.delete(i); const el=cards.querySelector(`[data-i="${i}"]`); const r=res[i].r;
+      const show=()=>{ el.classList.add('flip','r-'+r); el.style.setProperty('--rc',RAR_COL[r]);
+        sfx(r==='Leggendaria'?'leg':r==='Epica'?'epic':r==='Rara'?'rare':'flip');
+        if(r==='Leggendaria') legendFx(el,box);
+        if(!left.size) done(); };
+      // leggendaria: un attimo di attesa (la carta trema e si accende di cremisi e viola), poi si gira
+      if(r==='Leggendaria'&&!REDUCED){ el.classList.add('legpre'); sfx('kw'); setTimeout(()=>{ el.classList.remove('legpre'); show(); },700); } else show(); };
     cards.querySelectorAll('.pkc').forEach(el=>el.onclick=()=>{ const i=+el.dataset.i; if(left.has(i)) flip(i); else { const c=CARDS[res[i].n]; const keep=d; d.remove(); const m=modal(`${bigCard(c)}<div class="row" style="margin-top:10px"><button class="btn" id="pkBack">Indietro</button></div>`); $('#pkBack').onclick=()=>{ m.remove(); document.body.appendChild(keep); }; } });
     btns.innerHTML=`<button class="btn" id="pkAll">Rivela tutte</button>`;
     $('#pkAll').onclick=()=>{ [...left].forEach((i,k)=>setTimeout(()=>flip(i),k*(res.length>6?140:260))); };
