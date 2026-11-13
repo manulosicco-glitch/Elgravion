@@ -389,7 +389,7 @@ document.addEventListener('contextmenu',e=>{ if(G){ const t=e.target; if(t&&(t.t
 // ======================= SCORCIATOIE DA TASTIERA
 document.addEventListener('keydown',e=>{
   const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-  if(e.key==='Escape'){ if(cancelAction()) e.preventDefault(); return; }
+  if(e.key==='Escape'){ if(cancelAction()){ e.preventDefault(); return; } if(G&&!G.over&&!$('#ov')&&!TUT){ e.preventDefault(); askSurrender(); } return; }
   if((e.key==='f'||e.key==='F') && !e.ctrlKey && !e.metaKey && !e.altKey){ e.preventDefault(); toggleFs(); return; }
   if(e.code==='Space' || e.key===' '){
     if(!G || G.over || G.phase!=='play' || G.cur!==me || G.pending.length || $('#ov')) return;
@@ -1068,7 +1068,7 @@ function render(){
     return `<div class="bar ${isMe?'me':''}">
       <div class="side l">${infoEl}</div>
       <div class="mid">${heroEl}${powerEl}</div>
-      <div class="side r">${isMe?`<span class="timer" id="tmr"></span><button class="endbtn ${myTurn&&!pd?'':'wait'} ${myTurn&&!pd&&nothingLeft()?'done':''}" id="bEnd" ${myTurn&&!pd&&nothingLeft()?'title="Non hai altre mosse: puoi finire il turno"':''}>${G.over?'Fine':myTurn?'Fine turno':'Turno avversario'}</button>`:`${soundBtn()}${setBtn()}${fsBtn()}<button class="btn sm" id="bLog">Diario</button><button class="btn sm" id="bMenu">Menu</button>`}</div>
+      <div class="side r">${isMe?`<span class="timer" id="tmr"></span><button class="endbtn ${myTurn&&!pd?'':'wait'} ${myTurn&&!pd&&nothingLeft()?'done':''}" id="bEnd" ${myTurn&&!pd&&nothingLeft()?'title="Non hai altre mosse: puoi finire il turno"':''}>${G.over?'Fine':myTurn?'Fine turno':'Turno avversario'}</button>`:`${soundBtn()}${setBtn()}${fsBtn()}<button class="btn sm" id="bLog">Diario</button><button class="btn sm resa" id="bResa" title="Arrenditi (Esc)">🏳 Resa</button><button class="btn sm" id="bMenu">Menu</button>`}</div>
     </div>`;
   };
   const pegSlot=(pl,isMe)=>{
@@ -1369,6 +1369,7 @@ function bind(legalT,hlSlots,hlOpp){
   $('#bLog').onclick=()=>{logOn=!logOn;render();};
   bindSound(); bindSet();
   $('#bMenu').onclick=()=>{ if(confirmBox('Tornare al menu? La partita in corso si chiude.')) {} };
+  { const br=$('#bResa'); if(br) br.onclick=askSurrender; }
   const sk=$('#bSkip'); if(sk) sk.onclick=()=>{ sel.targets.push(null); advance(); };
   const bc=$('#bCancel'); if(bc) bc.onclick=()=>{ sel=null; render(); };
   const bs=$('#bStay'); if(bs) bs.onclick=()=>send({type:'choose',choice:-1});
@@ -1385,10 +1386,17 @@ function bind(legalT,hlSlots,hlOpp){
   const pme=app.querySelector('[data-power="me"]'); if(pme) pme.onpointerdown=powerDragStart;
   app.querySelectorAll('[data-peg]').forEach(e=>e.onclick=()=>pegnoInfo(e.dataset.peg));
 }
+function askSurrender(){
+  if(!G||G.over) return;
+  const rk=G.ranked;
+  modal(`<h3>Vuoi arrenderti?</h3><div class="note" style="margin:0 auto 10px">La partita finisce subito e vince ${NET?'l\'avversario':'il computer'}.${rk?' In <b>classificata</b> conta come sconfitta.':''}</div><div class="row"><button class="btn" id="srYes">🏳 Mi arrendo</button><button class="btn" id="srNo">Continua a giocare</button></div>`);
+  $('#srNo').onclick=closeModal;
+  $('#srYes').onclick=()=>{ closeModal(); if(!G||G.over) return; send({type:'concede'}); };
+}
 function confirmBox(msg){
   const rk=G&&G.ranked&&!G.over;
   modal(`<h3>${esc(msg)}</h3>${rk?'<div class="note" style="margin:0 auto 10px">È una partita <b>classificata</b>: abbandonare conta come sconfitta.</div>':''}<div class="row"><button class="btn" id="mYes">Sì</button><button class="btn" id="mNo">No</button></div>`);
-  $('#mYes').onclick=()=>{ closeModal(); if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } if(NET) NET.leave(); menu(); }; $('#mNo').onclick=closeModal;
+  $('#mYes').onclick=()=>{ closeModal(); if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } const n=NET; if(n){ if(G&&!G.over){ try{ n.local(E.enrich(G,me,{type:'concede'})); }catch(e){} } setTimeout(()=>{ try{ n.leave(); }catch(e){} },600); } menu(); }; $('#mNo').onclick=closeModal;
 }
 function modal(html,cls){ closeModal(); hidePeek(); const d=document.createElement('div'); d.className='ov'; d.id='ov'; d.innerHTML=`<div class="box ${cls||''}">${html}</div>`; d.onclick=e=>{ if(e.target===d && !d.dataset.lock) closeModal(); }; document.body.appendChild(d); return d; }
 function closeModal(){ const d=$('#ov'); if(d) d.remove(); }
@@ -1646,7 +1654,7 @@ function tick(){
   if(left===0 && !TUT && !(vsAI&&!SET.timer&&!NET)){
     if(G.phase==='mulligan'){ if(!timedOut&&!G.players[me].mulliganDone){ timedOut=true; closeModal(); send({type:'mulligan',uids:[]}); } return; }
     if(autoResolveMine()) return;
-    if(G.cur===me && !G.pending.length && !timedOut){ timedOut=true; closeModal(); sel=null; toast('Tempo scaduto: fine turno.'); send({type:'end'}); }
+    if(G.cur===me && !G.pending.length && !timedOut){ timedOut=true; closeModal(); sel=null; toast('Tempo scaduto: fine turno.'); send({type:'end',idle:true}); }
     if(G.cur===me && !G.pending.length && timedOut && Date.now()-turnStart>TURN_MS+4000 && NET){ turnStart=Date.now()-TURN_MS+1000; timedOut=false; } // riprova se il messaggio si è perso
   }
 }

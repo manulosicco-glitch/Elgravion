@@ -112,7 +112,7 @@ function isStrofa(u){ return u.kind==='minion' && !u.silenced && /Strofa:/.test(
 const STAT_MAX=20;
 function stat(u){ return {a:Math.min(STAT_MAX,Math.max(0,u.baseA+u.buffA+u.auraA)), d:Math.min(STAT_MAX,u.baseD+u.buffD+u.auraD)}; }
 // Limite ai cicli: lo stesso effetto (per carta) si attiva al massimo 20 volte per azione o inizio turno.
-const LOOP_MAX=15, STAR_MAX=5;
+const LOOP_MAX=15, STAR_MAX=5, IDLE_MAX=4;
 function loopOk(g,key){ g.loops=g.loops||{}; const k=(g.loops[key]||0)+1; g.loops[key]=k;
   if(k>LOOP_MAX){ if(k===LOOP_MAX+1){ const [ev,n]=key.split(':'); log(g,`Ciclo interrotto: ${n?n+' ('+ev+')':ev} si è già attivato ${LOOP_MAX} volte.`); } return false; } return true; }
 function hpLeft(u){ return stat(u).d-u.dmg; }
@@ -972,13 +972,17 @@ function act(g,pi,a){
   try{
   switch(a.type){
     case 'mulligan': mulligan(g,pi,a.uids||[]); break;
-    case 'play': r=playCard(g,pi,a.uid,a.slot,a.targets,a.n); break;
-    case 'attack': r=attack(g,pi,a.uid,a.target); break;
-    case 'power': r=usePower(g,pi,a.target); break;
+    case 'play': P.idle=0; r=playCard(g,pi,a.uid,a.slot,a.targets,a.n); break;
+    case 'attack': P.idle=0; r=attack(g,pi,a.uid,a.target); break;
+    case 'power': P.idle=0; r=usePower(g,pi,a.target); break;
     case 'pegno': r=toPegno(g,pi,a.uid); break;
     case 'choose': r=resolvePending(g,pi,a.choice)?null:'nessuna scelta'; break;
-    case 'end': r=endTurn(g,pi,a.pay); break;
-    case 'concede': g.over=true; g.winner=1-pi; log(g,`${g.players[pi].name} si arrende.`); break;
+    case 'end': {
+      // chi lascia scadere il tempo senza giocare per più di IDLE_MAX turni di fila perde (solo online)
+      if(a.idle){ P.idle=(P.idle||0)+1; } else P.idle=0;
+      if(g.online && P.idle>IDLE_MAX && !g.over){ g.over=true; g.winner=1-pi; log(g,`${P.name} non gioca da più di ${IDLE_MAX} turni: vince ${g.players[1-pi].name}.`); break; }
+      r=endTurn(g,pi,a.pay); break; }
+    case 'concede': if(!g.over){ g.over=true; g.winner=1-pi; g.conceded=pi; log(g,`${g.players[pi].name} si arrende.`); } break;
   }
   } finally { g.src=oldSrc; }
   if(a.type==='play'&&!r){ g.pstat=g.pstat||[{plays:0},{plays:0}]; g.pstat[pi].plays++; }
