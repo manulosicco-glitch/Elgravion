@@ -1480,17 +1480,37 @@ function startCardDrag(g,ev){
   g.mode='drag'; const p=G.players[me]; const h=p.hand.find(x=>x.uid===g.uid); const c=E.card(h.n);
   sel={kind:'play',uid:h.uid,n:c.n,slot:null,targets:[],req:E.TARGETS[c.n]||[],drag:true};
   sel.step=c.n==="L'Usurpatore"?'eslot':(c.t==='Seguace'||c.t==='Dominio')?'slot':'target';
+  const src0=document.querySelector(`.hand .mc[data-h="${g.uid}"]`), r0=src0?src0.getBoundingClientRect():null;
   render(); if(sel.step==='target'&&!sel.req.length){ const b=$('.board'); if(b) b.classList.add('drop'); }
-  if(sel.step==='target' && sel.req.length){ cardArrow=mkArrow(ev.clientX,ev.clientY-20,'#7fd4ff'); ghost=document.createElement('div'); ghost.className='ghost spell'; ghost.innerHTML=miniCard(c,E.costOf(G,p,h,null)); ghost.style.left=ev.clientX+'px'; ghost.style.top=(ev.clientY-20)+'px'; document.body.appendChild(ghost); moveGhost(ev); return; }
-  ghost=document.createElement('div'); ghost.className='ghost'; ghost.innerHTML=miniCard(c,E.costOf(G,p,h,null)); document.body.appendChild(ghost); moveGhost(ev);
+  const src=document.querySelector(`.hand .mc[data-h="${g.uid}"]`); if(src) src.classList.add('dragsrc');
+  const touch=g.type!=='mouse';
+  if(sel.step==='target' && sel.req.length){ cardArrow=mkArrow(ev.clientX,ev.clientY-20,'#7fd4ff'); ghost=document.createElement('div'); ghost.className='ghost spell'+(touch?' touch':''); ghost.innerHTML=miniCard(c,E.costOf(G,p,h,null)); ghost.style.left=ev.clientX+'px'; ghost.style.top=(ev.clientY-20)+'px'; document.body.appendChild(ghost); moveGhost(ev); return; }
+  // la carta parte dal suo posto nella mano e "vola" sotto il dito (sul telefono resta un po' sopra il dito, così si vede)
+  ghost=document.createElement('div'); ghost.className='ghost lift'+(touch?' touch':''); ghost.innerHTML=miniCard(c,E.costOf(G,p,h,null));
+  if(r0){ ghost.style.left=(r0.left+r0.width/2)+'px'; ghost.style.top=(r0.top+r0.height*0.7)+'px'; }
+  document.body.appendChild(ghost); const gh=ghost;
+  requestAnimationFrame(()=>{ if(ghost!==gh) return; gh.classList.add('glide'); moveGhost(ev); setTimeout(()=>gh.classList.remove('glide'),170); });
 }
 let cardArrow=null;
+let GH_RAF=0, GH_XY=null;
 function moveGhost(ev){
-  if(!ghost) return; if(cardArrow) cardArrow.to(ev.clientX,ev.clientY); else { ghost.style.left=ev.clientX+'px'; ghost.style.top=ev.clientY+'px'; }
+  if(!ghost) return; if(cardArrow) cardArrow.to(ev.clientX,ev.clientY);
+  else { GH_XY=[ev.clientX,ev.clientY]; if(!GH_RAF) GH_RAF=requestAnimationFrame(()=>{ GH_RAF=0; if(ghost&&GH_XY){ ghost.style.left=GH_XY[0]+'px'; ghost.style.top=GH_XY[1]+'px'; } }); }
   app.querySelectorAll('.hov').forEach(x=>x.classList.remove('hov'));
   const el=document.elementFromPoint(ev.clientX,ev.clientY); const t=el&&el.closest&&el.closest('.slot.hl,.unit.tg,.hero.tg'); if(t) t.classList.add('hov'); doomAttacker(false);
 }
+let DRAG_BACK=false;
 function endCardDrag(ev){
+  const gh=ghost, uid=sel&&sel.uid; ghost=null; DRAG_BACK=false; cancelAnimationFrame(GH_RAF); GH_RAF=0;
+  endCardDrag0(ev);
+  if(!gh) return;
+  // carta non giocata: torna al suo posto nella mano invece di sparire
+  const back=DRAG_BACK&&uid!=null&&document.querySelector(`.hand .mc[data-h="${uid}"]`);
+  if(back&&!REDUCED){ const r=back.getBoundingClientRect(); back.classList.add('dragsrc'); gh.classList.add('home'); gh.style.left=(r.left+r.width/2)+'px'; gh.style.top=(r.top+r.height*0.7)+'px';
+    setTimeout(()=>{ gh.remove(); back.classList.remove('dragsrc'); },230); }
+  else { gh.classList.add('drop'); setTimeout(()=>gh.remove(),140); }
+}
+function endCardDrag0(ev){
   if(ghost){ ghost.remove(); ghost=null; } if(cardArrow){ cardArrow.remove(); cardArrow=null; } app.querySelectorAll('.hov').forEach(x=>x.classList.remove('hov'));
   if(!sel){ render(); return; }
   const el=document.elementFromPoint(ev.clientX,ev.clientY); const at=q=>el&&el.closest&&el.closest(q);
@@ -1499,7 +1519,7 @@ function endCardDrag(ev){
     if(sel.req.length){ const t=at('.unit.tg'); if(t){ sel.targets.push(+t.dataset.u); return advance(); } const hh=at('.hero.tg'); if(hh){ sel.targets.push('hero'); return advance(); } }
     else if(at('.board')) return advance();
   }
-  sel=null; render(); toast('Carta riportata in mano');
+  sel=null; render(); DRAG_BACK=true;
 }
 window.addEventListener('resize',()=>{ if(G) fitHand(); });
 
