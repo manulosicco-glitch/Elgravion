@@ -7,12 +7,35 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
-const E = require('./game/engine.js');
-const { CARDS, AI_DECKS } = require('./game/data.js');
+const vm = require('vm');
 const { arbitrate } = require('./arbiter.js');
 const { verifyAi } = require('./aigame.js');
 const R = require('./rank.js');
-const X = require('./economy.js').make(E, CARDS);
+const ECON = require('./economy.js');
+
+// Regole e carte: il server le legge dal gioco pubblicato, così carte nuove, modifiche e ampliamenti
+// valgono subito anche qui senza ripubblicare le funzioni. Se il sito non risponde usa la copia interna.
+const SITE = 'https://manulosicco-glitch.github.io/Elgravion/';
+const BUNDLED = (() => { const E = require('./game/engine.js'); const D = require('./game/data.js'); return { E, CARDS: D.CARDS, AI_DECKS: D.AI_DECKS, ver: 'interna' }; })();
+let GAME = null, GAME_T = 0, OLD = []; // OLD: versioni precedenti, per le partite iniziate prima di un aggiornamento
+function loadFrom(dataSrc, engineSrc){
+  const ctx = vm.createContext({ console, Math, JSON, Object, Array, String, Number, Boolean, Set, Map, Date: Date });
+  ctx.module = { exports: {} }; vm.runInContext(dataSrc, ctx, { filename: 'data.js', timeout: 5000 }); const D = ctx.module.exports;
+  ctx.module = { exports: {} }; ctx.require = () => D; vm.runInContext(engineSrc, ctx, { filename: 'engine.js', timeout: 5000 }); const E = ctx.module.exports;
+  if (!D.CARDS || !E.newGame || !E.act) throw new Error('gioco incompleto');
+  return { E, CARDS: D.CARDS, AI_DECKS: D.AI_DECKS || {} };
+}
+async function game(){
+  if (GAME && Date.now() - GAME_T < 10 * 60 * 1000) return GAME;
+  try {
+    const get = async f => { const r = await fetch(SITE + f + '?t=' + Date.now(), { signal: AbortSignal.timeout(8000) }); if (!r.ok) throw new Error(f + ' ' + r.status); return r.text(); };
+    const [d, e] = await Promise.all([get('data.js'), get('engine.js')]);
+    const ver = crypto.createHash('sha1').update(d + e).digest('hex').slice(0, 10);
+    if (!GAME || GAME.ver !== ver) { if (GAME) OLD = [GAME, ...OLD].slice(0, 3); GAME = Object.assign(loadFrom(d, e), { ver }); logger.info('regole del gioco aggiornate', ver, Object.keys(GAME.CARDS).length + ' carte'); }
+  } catch (err) { logger.warn('uso la copia interna delle regole', err.message); if (!GAME) GAME = BUNDLED; }
+  GAME.X = GAME.X || ECON.make(GAME.E, GAME.CARDS); GAME_T = Date.now();
+  return GAME;
+}
 
 admin.initializeApp();
 const REGION = 'europe-west1', INSTANCE = 'elgravion-default-rtdb';
@@ -22,7 +45,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 // modifica atomica del profilo; fn(p) restituisce il risultato o lancia un errore per il giocatore
 async function withProfile(uid, fn, opt){
-  opt = opt || {}; let out, err = null;
+  opt = opt || {}; let out, err = null; const X = (await game()).X;
   const tx = await db().ref('profiles/' + uid).transaction(cur => {
     if (cur == null && !opt.create) { err = 'Profilo non trovato: accedi di nuovo.'; return; }
     const p = X.norm(cur); err = null;
@@ -33,7 +56,7 @@ async function withProfile(uid, fn, opt){
   if (!tx.committed) throw new HttpsError('aborted', 'Riprova.');
   return { profile: tx.snapshot.val(), res: out };
 }
-function ownsDeck(p, cls, deck){ const d = deck || E.DECKS[cls]; return !!p && X.deckOwned(X.norm(p), d); }
+function ownsDeck(Gm, p, cls, deck){ const d = deck || Gm.E.DECKS[cls]; return !!p && Gm.X.deckOwned(Gm.X.norm(p), d); }
 
 // cambio di stagione: premio in base al rango raggiunto, poi il rango scende (una volta sola)
 async function seasonRoll(uid){
@@ -49,6 +72,7 @@ async function seasonRoll(uid){
     s.forEach(c => { const v = c.val() || {}; if (v.season === old.season && v.tier === R.CREMISI) rows.push([c.key, v.rating || 0]); });
     rows.sort((a, b) => b[1] - a[1]); const i = rows.findIndex(r => r[0] === uid); place = i >= 0 ? i + 1 : null;
   }
+  const X = (await game()).X;
   const end = { season: old.season, tier: old.tier | 0, lvl: old.lvl || 3, rating: old.rating || 1000, value: R.rankValue(R.normalize(Object.assign({}, old, { season: now }))), place };
   const got = await db().ref('profiles/' + uid).once('value');
   if (!got.exists()) return { end, rw: null, gained: [] };
@@ -59,7 +83,7 @@ async function seasonRoll(uid){
 // ---------- economia ----------
 exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Accedi con Google.');
-  const uid = req.auth.uid, d = req.data || {}, op = d.op;
+  const uid = req.auth.uid, d = req.data || {}, op = d.op; const Gm = await game(), X = Gm.X;
   switch (op) {
     case 'sync': {
       const snap = await db().ref('profiles/' + uid).once('value');
@@ -83,7 +107,8 @@ exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60
       const claim = db().ref('claims/' + uid + '/' + id);
       if ((await claim.once('value')).exists()) throw new HttpsError('already-exists', 'Premio già ricevuto.');
       const prof = (await db().ref('profiles/' + uid).once('value')).val();
-      const v = verifyAi(E, AI_DECKS, rec, (cls, deck) => ownsDeck(prof, cls, deck));
+      let v = null;
+      for (const g of [Gm, ...OLD, BUNDLED]) { g.X = g.X || ECON.make(g.E, g.CARDS); const r = verifyAi(g.E, g.AI_DECKS, rec, (cls, deck) => ownsDeck(g, prof, cls, deck)); if (!v || r.ok) v = r; if (r.ok) break; }
       if (!v.ok) { logger.warn('claimAi rifiutata', uid, v.why); throw new HttpsError('failed-precondition', 'Partita non verificata: ' + v.why + '.'); }
       const lock = await claim.transaction(cur => cur ? undefined : { t: Date.now(), win: v.win });
       if (!lock.committed) throw new HttpsError('already-exists', 'Premio già ricevuto.');
@@ -108,8 +133,13 @@ exports.arbitro = onValueWritten({ ref: '/ranked/{room}/end/{uid}', region: REGI
   const players = rk.players || {};
   // il mazzo deve essere fatto di carte possedute
   const profs = {}; await Promise.all(Object.keys(players).map(async u => { profs[u] = (await db().ref('profiles/' + u).once('value')).val(); }));
-  const deckOk = u => ownsDeck(profs[u], players[u].cls, players[u].deck);
-  const out = arbitrate(E, { room, players, msgs, ends: rk.end || {}, present, deckOk });
+  const Gm = await game(), X = Gm.X;
+  const deckOk = u => ownsDeck(Gm, profs[u], players[u].cls, players[u].deck);
+  const args = { room, players, msgs, ends: rk.end || {}, present, deckOk };
+  let out = arbitrate(Gm.E, args);
+  // una partita iniziata prima di un aggiornamento delle regole si giudica con le regole di allora
+  const clean = o => o.status !== 'done' || /conclusa|resa|abbandono/.test(o.reason);
+  if (!clean(out)) for (const g of [...OLD, BUNDLED]) { if (g === Gm) continue; const o = arbitrate(g.E, args); if (clean(o)) { out = o; break; } }
   logger.info('arbitro', room, out);
   if (out.status === 'wait') return;
 

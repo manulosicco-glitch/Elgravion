@@ -9,10 +9,11 @@ const RAR_ORD = { Comune: 0, Rara: 1, Epica: 2, Leggendaria: 3 };
 const SEASON_REWARDS = [{ gra: 100, packs: 0 }, { gra: 200, packs: 1 }, { gra: 300, packs: 2 }, { gra: 500, packs: 3, cosm: 'dorso-nera' }, { gra: 800, packs: 5, cosm: 'dorso-cremisi' }];
 const CLASSES = ['minatore', 'sirena', 'adepto', 'traccia', 'incisore', 'scudiera'];
 const DAILY_REWARDS = 30; // partite premiate al giorno (contro il computer + online)
-const IMPORT_MAX_COINS = 3000, IMPORT_MAX_PACKS = 10;
 
 function make(E, CARDS){
   const collectible = () => Object.values(CARDS).filter(c => c.r !== 'Gettone');
+  // il tetto dell'importazione cresce da solo con la collezione: più carte nel gioco, più GRA e pacchetti ammessi
+  const importCaps = () => { const n = collectible().length; return { coins: Math.round((n * 20 + 200) / 50) * 50, packs: Math.max(5, Math.ceil(n / 14)) }; };
   const maxOf = n => E.MAX_COPIES[CARDS[n].r] || 0;
   const fresh = () => ({ v: 1, cards: {}, coins: 0, packs: 0, pity: 0, opened: 0, games: 0, wins: 0, start: null, done: {}, cosm: [], day: '', dayN: 0 });
   const norm = p => { p = Object.assign(fresh(), p || {}); p.cards = p.cards || {}; p.done = p.done || {}; p.cosm = Array.isArray(p.cosm) ? p.cosm : Object.values(p.cosm || {}); return p; };
@@ -70,8 +71,9 @@ function make(E, CARDS){
     const out = fresh(); local = local || {};
     if (local.start && CLASSES.includes(local.start)) out.start = local.start;
     for (const [n, k] of Object.entries(local.cards || {})) { const c = CARDS[n]; if (!c || c.r === 'Gettone') continue; const q = Math.max(0, Math.min(maxOf(n), k | 0)); if (q) out.cards[n] = q; }
-    out.coins = Math.max(0, Math.min(IMPORT_MAX_COINS, local.coins | 0));
-    out.packs = Math.max(0, Math.min(IMPORT_MAX_PACKS, local.packs | 0));
+    const cap = importCaps();
+    out.coins = Math.max(0, Math.min(cap.coins, local.coins | 0));
+    out.packs = Math.max(0, Math.min(cap.packs, local.packs | 0));
     out.pity = Math.max(0, Math.min(PACK.pity, local.pity | 0)); out.opened = Math.max(0, local.opened | 0);
     out.games = Math.max(0, local.games | 0); out.wins = Math.max(0, Math.min(out.games, local.wins | 0));
     out.done = {}; for (const k of [...CLASSES, 'neutrali']) if (classComplete(out, k)) out.done[k] = 1; // nessun premio doppio
@@ -86,6 +88,6 @@ function make(E, CARDS){
   }
   // un mazzo è usabile solo con carte possedute
   function deckOwned(p, deck){ return !deck || deck.every(([n, k]) => (p.cards[n] || 0) >= k); }
-  return { fresh, norm, starter, openPack, buyPack, craft, sell, reward, importLocal, seasonReward, deckOwned, classBonus };
+  return { importCaps, fresh, norm, starter, openPack, buyPack, craft, sell, reward, importLocal, seasonReward, deckOwned, classBonus };
 }
 module.exports = { make, PACK, CRAFT, SELL, DAILY_REWARDS };
