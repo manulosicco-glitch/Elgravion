@@ -11,8 +11,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Elgravion">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192-v2.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-v2.png">
 <style>
 :root{--bg:#1a1622;--panel:#241e2c;--line:#4a4058;--gold:#c9a24b;--gold2:#f1e3b8;--txt:#ece4d2;--mut:#a39a8a;--atk:#d9822b;--def:#b3263a;--sz:max(40px,min(calc((100vw - 34px) / 7),150px,calc((100dvh - 490px) / 2.64)))}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -929,6 +929,21 @@ html,body{background:radial-gradient(ellipse at 50% 42%,#4a3e57,#2a2233 92%)}
 .hand{background:linear-gradient(#3a2f22,#231b13)!important}
 .mc.no{filter:grayscale(.6) brightness(.74)}
 @media (min-width:761px){ body::after{height:90px;background:linear-gradient(transparent,#0b090d55)} .hand{background:none!important} }
+
+/* Titolo intarsiato con la moneta al posto della O */
+.menu h1{display:flex;align-items:center;justify-content:center;gap:0;line-height:1}
+.menu h1 .tw{background:repeating-linear-gradient(118deg,#0000 0 5px,#7a4e1222 5px 6px),linear-gradient(180deg,#fffdf4 0%,#ffeaa8 32%,#e3b85e 56%,#b98a2e 70%,#fff1c4 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1px #6b4310;paint-order:stroke fill}
+.menu h1{background:none!important;-webkit-text-fill-color:initial}
+.menu h1 .tcoin{height:.92em;width:.92em;margin:0 .22em 0 .02em;filter:drop-shadow(0 2px 0 #5a3a0c) drop-shadow(0 0 10px #f0b85aaa);animation:tcoin 7s ease-in-out infinite}
+@keyframes tcoin{0%,70%,100%{transform:rotateY(0)}85%{transform:rotateY(180deg)}}
+.mtitle2 .orn{width:clamp(60px,14vw,170px);height:auto}
+.mtitle2 .orn::before,.mtitle2 .orn::after{display:none}
+.mtitle2 .orn svg{display:block;width:100%;height:auto}
+.mtitle2 .orn.r svg{transform:scaleX(-1)}
+.tband{width:min(520px,80vw);margin:6px auto 0;height:14px}
+.tband svg{display:block;width:100%;height:100%}
+@media (prefers-reduced-motion:reduce){ .menu h1 .tcoin{animation:none} }
+@media (max-width:620px){ .tband{width:86vw} }
 </style>
 </head>
 <body>

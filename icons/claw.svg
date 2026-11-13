@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+  <linearGradient id="cl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5b1fa8"/><stop offset=".35" stop-color="#a45cff"/><stop offset=".75" stop-color="#e6c8ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+  <linearGradient id="sp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6c8ff"/><stop offset=".5" stop-color="#9b4dff"/><stop offset="1" stop-color="#e6c8ff"/></linearGradient>
+  <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="10"/></filter>
+  <filter id="fog" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>
+</defs>
+<!-- nebbia -->
+<g filter="url(#fog)" opacity=".95">
+  <path d="M120 400 C160 360 150 300 190 280 C170 320 200 360 160 420Z" fill="#9b4dff"/>
+  <path d="M360 160 C400 150 420 120 440 130 C420 150 400 180 370 182Z" fill="#b57bff"/>
+  <path d="M350 340 C392 350 416 380 440 372 C418 360 398 330 366 326Z" fill="#b57bff"/>
+  <ellipse cx="160" cy="140" rx="40" ry="18" fill="#7a2fd6"/>
+  <ellipse cx="200" cy="255" rx="46" ry="130" fill="#7a2fd6"/>
+  <ellipse cx="290" cy="168" rx="90" ry="26" fill="#8f45ef"/>
+  <ellipse cx="270" cy="256" rx="76" ry="22" fill="#8f45ef"/>
+  <ellipse cx="290" cy="344" rx="90" ry="26" fill="#8f45ef"/>
+</g>
+<!-- alone dell'artiglio -->
+<g filter="url(#glow)" opacity=".9" fill="#c27bff">
+  <path d="M182 140 C170 200 170 312 182 372 L206 372 C198 312 198 200 206 140Z"/>
+  <path d="M190 150 C250 140 310 146 352 168 C306 166 250 172 196 182Z"/>
+  <path d="M190 242 C240 236 290 242 326 258 C286 260 240 266 196 272Z"/>
+  <path d="M190 330 C250 342 310 346 352 342 C306 356 250 362 196 362Z"/>
+</g>
+<!-- artiglio a forma di E: dorso e tre unghie -->
+<path d="M180 136 C166 200 166 312 180 376 C190 372 200 366 206 360 C196 304 196 208 206 152 C200 146 190 140 180 136Z" fill="url(#sp)" stroke="#2a0b52" stroke-width="3"/>
+<path d="M196 152 C252 138 314 144 360 166 C314 168 254 176 200 186Z" fill="url(#cl)" stroke="#2a0b52" stroke-width="3" stroke-linejoin="round"/>
+<path d="M196 240 C244 232 296 238 334 256 C294 262 244 270 198 276Z" fill="url(#cl)" stroke="#2a0b52" stroke-width="3" stroke-linejoin="round"/>
+<path d="M200 326 C254 336 314 342 360 340 C314 360 252 366 196 362Z" fill="url(#cl)" stroke="#2a0b52" stroke-width="3" stroke-linejoin="round"/>
+<!-- riflessi -->
+<path d="M206 158 C254 150 300 152 334 164" stroke="#fff" stroke-width="2.5" fill="none" opacity=".7"/>
+<path d="M206 246 C246 242 284 244 312 254" stroke="#fff" stroke-width="2.2" fill="none" opacity=".6"/>
+<path d="M206 334 C252 342 300 346 334 344" stroke="#fff" stroke-width="2.5" fill="none" opacity=".6"/>
+<path d="M178 160 C172 220 172 300 178 352" stroke="#fff" stroke-width="2" fill="none" opacity=".5"/>
+</svg>

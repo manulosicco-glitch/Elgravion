@@ -250,6 +250,9 @@ const RING_PAL={
   incisore:{m:['#ffffff','#e6e1d6','#a89f8c','#fbf6ea','#6d6556'],g:'#d6a43a',g2:'#fff0b8'},
   scudiera:{m:['#fff6d2','#e9c45a','#9a6f12','#ffe08a','#5c4006'],g:'#3b6fe0',g2:'#d0e0ff'}
 };
+// Intarsi del titolo: volute dorate ai lati e fascia intarsiata sotto
+const TORN=`<svg viewBox="0 0 160 40" aria-hidden="true"><defs><linearGradient id="tg1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9a24b" stop-opacity="0"/><stop offset=".5" stop-color="#e8c56c"/><stop offset="1" stop-color="#fff1c4"/></linearGradient></defs><path d="M4 20 H118" stroke="url(#tg1)" stroke-width="2"/><path d="M30 20 C44 6 62 6 66 16 C70 26 56 30 52 22 C49 16 58 13 60 18" fill="none" stroke="#e8c56c" stroke-width="1.8"/><path d="M30 20 C44 34 62 34 66 24 C70 14 56 10 52 18" fill="none" stroke="#c9a24b" stroke-width="1.4" opacity=".8"/><path d="M78 20 C90 10 104 10 110 20 C104 30 90 30 78 20Z" fill="none" stroke="#e8c56c" stroke-width="1.4"/><circle cx="94" cy="20" r="3" fill="#7a3fd0" stroke="#fff1c4" stroke-width="1"/><path d="M132 20 l10 -8 l10 8 l-10 8z" fill="#f1d27e" stroke="#7a4e12" stroke-width="1"/><circle cx="142" cy="20" r="2.4" fill="#fff8e0"/></svg>`;
+const TBAND=`<svg viewBox="0 0 520 18" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="tb1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9a24b" stop-opacity="0"/><stop offset=".2" stop-color="#e8c56c"/><stop offset=".8" stop-color="#e8c56c"/><stop offset="1" stop-color="#c9a24b" stop-opacity="0"/></linearGradient></defs><path d="M10 5 H510 M10 13 H510" stroke="url(#tb1)" stroke-width="1.2"/>${Array.from({length:23},(_,i)=>{const x=40+i*20; return i===11?`<path d="M${x} 1 l8 8 l-8 8 l-8 -8z" fill="#f1d27e" stroke="#5a3a0c"/><circle cx="${x}" cy="9" r="2.6" fill="#8f45ef"/>`:`<path d="M${x} 6 l3 3 l-3 3 l-3 -3z" fill="#e8c56c" opacity="${(1-Math.abs(i-11)/13).toFixed(2)}"/>`;}).join('')}</svg>`;
 function ringSvg(cls,id){
   const P=RING_PAL[cls]||RING_PAL.minatore, m=P.m, k='rg'+id+cls;
   const gem=(x,y,r,c,c2)=>`<circle cx="${x}" cy="${y}" r="${r+1.6}" fill="url(#${k}m)" stroke="#000a" stroke-width=".8"/><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${k}g)"/><circle cx="${x-r*.35}" cy="${y-r*.35}" r="${r*.32}" fill="#fff" opacity=".75"/>`;
@@ -391,7 +394,7 @@ function menu(msg){
   app.innerHTML=`<div class="menu">
     <div class="mbg"><div class="mmap"></div><div class="mfog f1"></div><div class="mfog f2"></div><div class="members">${Array.from({length:26},(_,i)=>`<i style="left:${(i*37)%100}%;animation-delay:${(i*0.73)%9}s;animation-duration:${7+(i*1.3)%6}s"></i>`).join('')}</div></div>
     <div class="mside l">${soundBtn()}<span>Suoni</span>${fsBtn()}<span>Schermo</span></div><div class="mside r">${setBtn()}<span>Impostazioni</span>${instBtn()}</div>
-    <header class="mhead"><div class="mtitle2"><span class="orn l"></span><h1>ELGRAVION</h1><span class="orn r"></span></div><div class="sub">Gioco di carte · Primo Set</div></header>
+    <header class="mhead"><div class="mtitle2"><span class="orn l">${TORN}</span><h1 aria-label="Elgravion"><span class="tw">ELGRAVI</span><img class="tcoin" src="art/gra_oro.svg" alt=""><span class="tw">N</span></h1><span class="orn r">${TORN}</span></div><div class="tband">${TBAND}</div><div class="sub">Gioco di carte · Primo Set</div></header>
     <div class="mgrid">
     <nav class="mcol left"><div class="mcolh">Grimorio</div>
       <button class="btn mbtn" id="bCol"><i>📜</i><span>Collezione</span></button>
