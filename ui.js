@@ -367,7 +367,15 @@ async function shopScreen(tab){
   const S=await shopLoad(); const body=$('#shBody'); if(!body) return;
   if(!S.catalog){ body.innerHTML='<div class="note">Il negozio non risponde: riprova tra poco.</div>'; return; }
   const C=S.catalog, o=ownLoad(), have=new Set(o.cosm||[]);
-  const banner=!S.active?`<div class="shnote">🛠 Anteprima: i pagamenti con PayPal non sono ancora collegati. Prezzi e contenuti potrebbero cambiare.</div>`:(!ACC()?`<div class="shnote">Per acquistare accedi con Google (pulsante 🔑 nel menu): quello che compri resta sul tuo account.</div>`:'');
+  const banner=S.active&&S.mode==='sandbox'?`<div class="shnote">🛠 Pagamenti in prova: il negozio non è ancora aperto e non avviene nessun addebito reale.</div>`:!S.active?`<div class="shnote">🛠 Anteprima: i pagamenti con PayPal non sono ancora collegati. Prezzi e contenuti potrebbero cambiare.</div>`:(!ACC()?`<div class="shnote">Per acquistare accedi con Google (pulsante 🔑 nel menu): quello che compri resta sul tuo account.</div>`:'');
+  const kofi=((window.ELG_NET&&ELG_NET.cfg&&ELG_NET.cfg.kofi)||'')+''; const kofiOk=/^[A-Za-z0-9_]{2,40}$/.test(kofi);
+  if(SHOP_TAB==='dono'&&S.mode!=='live'){
+    // finché i pagamenti PayPal del negozio non sono reali, le donazioni passano dalla pagina Ko-fi dell'autore
+    body.innerHTML=`<div class="shdono"><h3>Sostieni Elgravion</h3><div class="note">Elgravion è un progetto indipendente. Una donazione aiuta a pagare il server e a creare nuove carte. Non dà vantaggi in partita: è solo un grazie.</div>
+      ${kofiOk?`<a class="btn big kofi" href="https://ko-fi.com/${kofi}" target="_blank" rel="noopener">☕ Dona su Ko-fi</a><div class="note" style="font-size:12px;opacity:.8">Si apre la pagina Ko-fi di Elgravion: puoi donare con PayPal o con carta, anche senza account. La donazione va direttamente all'autore.</div>`
+      :`<div class="shnote">Le donazioni saranno attive a breve. Grazie del pensiero!</div>`}</div>`;
+    return;
+  }
   if(SHOP_TAB==='dono'){
     body.innerHTML=`${banner}<div class="shdono"><h3>Sostieni Elgravion</h3><div class="note">Elgravion è un progetto indipendente. Una donazione aiuta a pagare il server e a creare nuove carte. Non dà vantaggi in partita: è solo un grazie.</div>
       <div class="shamts">${C.dono.suggest.map(v=>`<button class="btn shamt" data-a="${v}">${eurTxt(v)}</button>`).join('')}<label class="shfree">Altro: <input id="shAmt" type="number" min="${C.dono.min}" max="${C.dono.max}" step="1" placeholder="€"></label></div></div>`;

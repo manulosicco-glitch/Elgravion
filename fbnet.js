@@ -123,10 +123,10 @@
   };
 
   // ---------- Classificata con arbitro sul server ----------
-  let rankedFlag = !!window.ELG_RANKED_SERVER, econFlag = false;
+  let rankedFlag = !!window.ELG_RANKED_SERVER, econFlag = false, cfgObj = {};
   async function checkRanked(){
     try { await init(); const s = await firebase.database().ref('config').once('value'); const c = s.val() || {};
-      rankedFlag = rankedFlag || c.rankedServer === true; econFlag = c.economyServer === true; } catch (e) {}
+      cfgObj = c; rankedFlag = rankedFlag || c.rankedServer === true; econFlag = c.economyServer === true; } catch (e) {}
     return rankedFlag;
   }
   // ---------- economia sul server (collezione, GRA, pacchetti) ----------
@@ -161,7 +161,7 @@
   window.ELG_NET = {
     online: true,
     // la Classificata fuori da claude.ai si accende solo quando l'arbitro sul server è pronto
-    get ranked(){ return rankedFlag; }, get econOn(){ return econFlag; }, checkRanked, rk, econ, shop, decks,
+    get ranked(){ return rankedFlag; }, get econOn(){ return econFlag; }, get cfg(){ return cfgObj; }, checkRanked, rk, econ, shop, decks,
     async use(kind){ await init(); return kind === 'room' ? roomApi : kind === 'db' ? dbApi : kind === 'user' ? userApi : null; },
     signIn, currentUser,
     async signOut(){ await init(); await firebase.auth().signOut(); }
