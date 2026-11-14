@@ -1150,10 +1150,10 @@ function aiEval(g,pi){
 }
 // seme delle simulazioni dell'IA ricavato dalla partita: stessa situazione = stessa scelta (il server può ricontrollare le partite contro il computer)
 function aiClone(g){ const c=JSON.parse(JSON.stringify(g)); c.seed=((g.seed^Math.imul((g.log?g.log.length:0)+1,2654435761)^Math.imul(g.uid|0,40503)^Math.imul(g.turn|0,97))>>>0)||1; c.ev=[]; return c; }
-function aiRollout(c,pi){
+function aiRollout(c,pi,pol){
   for(let n=0;n<60;n++){
     if(c.over) return;
-    const a=ai(c,pi); if(!a) return;
+    const a=(pol||ai)(c,pi); if(!a) return;
     const r=act(c,pi,a);
     if(a.type==='end') return;
     if(r){ act(c,pi,{type:'end'}); return; }
@@ -1213,6 +1213,37 @@ function aiHard(g,pi){
   return best||ai(g,pi);
 }
 
+// IA "Esperta": prova ogni mossa, completa il turno con la Difficile e poi immagina la risposta dell'avversario
+// usando SOLO quello che si vede sul tavolo (i suoi attacchi con le unità già in campo: niente mano né mazzo nascosti).
+// Deterministica come le altre, così il server può ricontrollare le partite.
+function aiOppAttacks(c,me){
+  const op=1-me;
+  for(let n=0;n<12;n++){
+    if(c.over||c.cur!==op||c.phase!=='play'||c.pending.length) return;
+    const atk=aiCandidates(c,op).filter(a=>a.type==='attack'||a.type==='heroAttack');
+    let best=null, bv=aiEval(c,op);
+    for(const a of atk){ const d=aiClone(c); if(act(d,op,a)) continue; const v=aiEval(d,op); if(v>bv+0.5){ bv=v; best=a; } }
+    if(!best) return; if(act(c,op,best)) return;
+  }
+}
+function aiExpert(g,pi){
+  if(g.over) return null;
+  if(g.phase!=='play' || g.pending.length || g.cur!==pi || g.ending) return ai(g,pi);
+  const cands=aiCandidates(g,pi);
+  let best=null, bestV=-Infinity;
+  for(const a of cands){
+    const c=aiClone(g);
+    const r=act(c,pi,a);
+    if(r && a.type!=='end') continue;
+    if(a.type!=='end') aiRollout(c,pi,aiHard); 
+    if(!c.over && c.cur!==pi) aiOppAttacks(c,pi);
+    let v=aiEval(c,pi);
+    if(a.type==='end') v-=0.01;
+    if(v>bestV){ bestV=v; best=a; }
+  }
+  return best||aiHard(g,pi);
+}
+
 // ---------- Vista per un giocatore (nasconde mano e mazzo avversari)
 function view(g,pi){
   const v=JSON.parse(JSON.stringify(g));
@@ -1235,6 +1266,6 @@ function deckCheck(cls,list){
   const rules=[[tot===DECK_SIZE,`${tot}/${DECK_SIZE} carte`],[leg>=1,'Almeno 1 leggendaria'],[com>=4,'Almeno 4 comuni'],[inc>=1,'Almeno 1 Incanto'],[rit>=1,'Almeno 1 Rituale']];
   return {ok:!errs.length&&rules.every(r=>r[0]),tot,rules,errs};
 }
-const API={tutorIdx,FOCUS_MIN,focusOn,focusMin,STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
+const API={aiExpert,tutorIdx,FOCUS_MIN,focusOn,focusMin,STAR_MAX,LOOP_MAX,FOG_EVERY,aiHard,deckCheck,DECK_SIZE,MAX_COPIES,powerReq,hasRoom,gainMaxPf,HEROPF,needsTwo,canHeroAttack,heroAttackTargets,newGame,act,ai,view,enrich,pegnoReady,playable,PASHEY,STRAX,card,stat,hpLeft,hasKw,canAttack,attackTargets,legalTargets,freeSlots,costOf,canPower,TARGETS,POWER_TARGETS,DECKS,isStrofa,empatia,slotIsEmo,pegnoCost,minionsOf,unitsOf};
 if(typeof module!=='undefined') module.exports=API; else root.Engine=API;
 })(this);

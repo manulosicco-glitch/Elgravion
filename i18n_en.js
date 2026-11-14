@@ -323,10 +323,11 @@ ui: {
 "Un seguace della tua classe giocato qui costa":"A minion of your class played here costs","Un seguace della sua classe giocato qui costa":"A minion of its class played here costs",
 "Avanza quando muoiono i tuoi seguaci.":"Advances when your minions die.","Gettoni":"Tokens","Neutrali":"Neutrals","Valore di taglia 50 GRA":"Bounty value 50 GRA",
 "Taglia Bianca III · contro un giocatore di grado simile. Vinci pendenti, sali di taglia.":"White Bounty III · against a player of similar rank. Win pendants, climb the bounties.",
-"Il computer gioca":"The computer plays","L'avversario gioca":"The opponent plays","Scegli la classe con cui iniziare: riceverai il suo":"Choose the class to start with: you will receive its","mazzo base completo":"complete base deck"
+"Il computer gioca":"The computer plays","Sfidante del computer":"Computer Challenger","L'avversario gioca":"The opponent plays","Scegli la classe con cui iniziare: riceverai il suo":"Choose the class to start with: you will receive its","mazzo base completo":"complete base deck"
 },
 // ---------- Interface: patterns (regex source -> replacement)
 pat: [
+["^Avversario trovato: (.+) ⚙ \\(Sfidante del computer\\)$","Opponent found: $1 ⚙ (computer Challenger)"],["^Limite giornaliero di Classificate contro gli Sfidanti raggiunto: rango invariato\\.$","Daily limit of Ranked games against Challengers reached: rank unchanged."],["^Partita non verificata: rango invariato\\.$","Match not verified: rank unchanged."],
 ["^Emozione: (.+)$","Emotion: $1"],
 ["^(\\d+) pacchett[oi] di classe$","$1 class pack(s)"],["^Donazione di (.+)$","Donation of $1"],["^\\+(\\d+) Adamantio$","+$1 Adamantium"],
 ["^Premio giornaliero esaurito: domani altre partite premiate · hai (\\d+)$","Daily rewards used up: more rewarded matches tomorrow · you have $1"],["^Partita non verificata: (.+)\\.$","Match not verified: $1."],["^Account: sincronizzazione non riuscita \\((.+)\\)$","Account: sync failed ($1)"],

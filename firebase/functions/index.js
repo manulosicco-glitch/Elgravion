@@ -12,6 +12,7 @@ const vm = require('vm');
 const { arbitrate } = require('./arbiter.js');
 const { verifyAi } = require('./aigame.js');
 const R = require('./rank.js');
+const BOT_RANKED_DAY = 40; // Classificate contro gli Sfidanti che contano per il rango, al giorno
 const ECON = require('./economy.js');
 const SHOP = require('./shop.js');
 
@@ -115,7 +116,18 @@ exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60
       if (!v.ok) { logger.warn('claimAi rifiutata', uid, v.why); throw new HttpsError('failed-precondition', 'Partita non verificata: ' + v.why + '.'); }
       const lock = await claim.transaction(cur => cur ? undefined : { t: Date.now(), win: v.win });
       if (!lock.committed) throw new HttpsError('already-exists', 'Premio già ricevuto.');
-      return withProfile(uid, p => X.reward(p, v.win, today()));
+      const out = await withProfile(uid, p => X.reward(p, v.win, today()));
+      // Classificata contro uno Sfidante (computer Difficile o Esperto): il rango cambia come contro un avversario del tuo stesso rango.
+      if (d.ranked === true && (v.lv === 'h' || v.lv === 'x')) {
+        const day = today(), cnt = await db().ref('botRanked/' + uid + '/' + day).transaction(c => (c || 0) >= BOT_RANKED_DAY ? undefined : (c || 0) + 1);
+        if (cnt.committed) {
+          const now = new Date(); const ref = db().ref('ranks/' + uid);
+          const r0 = R.normalize((await ref.once('value')).val(), now); const a = R.apply(r0, v.win, r0);
+          await ref.set(Object.assign(a.rec, { updated: Date.now() }));
+          out.rank = { before: a.before, after: a.after, note: a.note, win: a.win };
+        } else out.rank = { void: true, note: 'Limite giornaliero di Classificate contro gli Sfidanti raggiunto: rango invariato.' };
+      }
+      return out;
     }
     default: throw new HttpsError('invalid-argument', 'Operazione sconosciuta.');
   }

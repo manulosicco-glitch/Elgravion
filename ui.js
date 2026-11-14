@@ -631,6 +631,7 @@ function mmCode(a,b){ const t=[a,b].sort().join('|'); let h=2166136261; for(cons
 // Ricerca automatica: i giocatori in cerca si vedono in una stanza d'attesa (una per Amichevole e una per Classificata),
 // si ordinano per grado e si accoppiano a due a due; il codice della partita nasce dai due identificativi.
 const MM_WAIT=120000; // dopo 2 minuti senza avversari la ricerca si ferma
+const BOT_WAIT=30000; // dopo 30 secondi senza giocatori veri arriva uno Sfidante (il computer, segnalato con ⚙)
 async function findMatch(mode,t0){
   t0=t0||Date.now();
   mode=mode==='classificata'?'classificata':'amichevole'; const ranked=mode==='classificata'; closeModal();
@@ -658,7 +659,7 @@ async function findMatch(mode,t0){
     const list=[...new Map(all.map(x=>[x.id,x])).values()].sort((a,b)=>(a.score-b.score)||(a.id<b.id?-1:1));
     const i=list.findIndex(x=>x.id===myId); if(i<0) return;
     const partner=list[i%2===0?i+1:i-1]; const t=$('#mmTxt');
-    if(!partner){ last=null; stable=0; if(Date.now()-t0>MM_WAIT) return offline('Al momento non ci sono giocatori attivi. Riprova più tardi, oppure gioca contro il computer.'); if(t) t.textContent=list.length>1?'Sto abbinando gli avversari…':'In attesa di un avversario…'; return; }
+    if(!partner){ last=null; stable=0; if(Date.now()-t0>BOT_WAIT&&list.length<=1&&!window.claude){ end(); closeModal(); startBot(ranked); return; } if(Date.now()-t0>MM_WAIT) return offline('Al momento non ci sono giocatori attivi. Riprova più tardi, oppure gioca contro il computer.'); if(t) t.textContent=list.length>1?'Sto abbinando gli avversari…':'In attesa di un avversario…'; return; }
     if(t) t.textContent='Avversario trovato: collegamento…';
     if(partner.id===last) stable++; else { last=partner.id; stable=1; }
     if(stable<3) return;
@@ -847,7 +848,10 @@ function gameReward(){
   if(ACC()){ const g=G;
     if(NET&&NET.srv) return G.__rew={pending:true};
     if(vsAI&&G.rec){ G.__rew={pending:true};
-      econDo('claimAi',{rec:G.rec},true).then(r=>{ g.__rew=r&&r.res?r.res:{none:1,why:'Premio non verificato.'}; const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); });
+      const rk=!!(g.bot&&g.ranked&&SRV());
+      econDo('claimAi',{rec:G.rec,ranked:rk},true).then(async r=>{ g.__rew=r&&r.res?r.res:{none:1,why:'Premio non verificato.'};
+        if(rk){ RANK_HOLD=0; await rankPull(true); g.__rankRes=r&&r.rank?r.rank:{void:true,note:'Partita non verificata: rango invariato.'}; const k=document.querySelector('.rkend'); if(k&&G===g) k.outerHTML=rankEndHtml(); }
+        const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); });
       return G.__rew; }
     return G.__rew={none:1};
   }
@@ -1069,17 +1073,36 @@ function startLocal(){
   G.rec={seed,classes:[chosenCls,other],decks:[deckFor(chosenCls),alt?alt.d:null],diff:SET.diff==='difficile'?'h':'n',log:[]};
   render(); toast(`Il computer gioca ${HEROES[other].n} · ${alt?`mazzo «${alt.n}»`:'mazzo base'}`); aiLoop();
 }
+// ---- Sfidanti: il computer entra in Amichevole/Classificata quando non ci sono persone in coda.
+// Nome diverso ogni partita, ma sempre segnalato con ⚙ ("Sfidante"). Livelli: Difficile (h) ed Esperto (x).
+const BOT_A=['Ombra','Lama','Corvo','Fiamma','Rovo','Ferro','Lupo','Gufo','Vento','Brina','Falco','Cenere','Quercia','Tuono','Spina','Nebbia','Selce','Marea','Faro','Rune','Grifo','Volpe','Orso','Cobalto','Ambra','Onice'];
+const BOT_B=['Grigio','Nero','Rosso','Errante','Lesto','Muto','Antico','Ardente','Scuro','Selvaggio','Fiero','Gelido','Solitario','Silente','Astuto'];
+const BOT_N=['Teo','Giuli','Marco','Sara','Leo','Ale','Fede','Nico','Vale','Dani','Mati','Elia','Gio','Bea','Simo','Luca','Ire','Max'];
+function botName(){ const R=a=>a[Math.floor(Math.random()*a.length)], n=Math.floor(Math.random()*99)+1, k=Math.random();
+  if(k<0.35) return R(BOT_A)+R(BOT_B)+(Math.random()<0.6?n:'');
+  if(k<0.65) return R(BOT_N)+(Math.random()<0.5?'_':'')+R(BOT_A).toLowerCase()+(Math.random()<0.5?n:'');
+  if(k<0.85) return R(BOT_A)+'_'+n; return R(BOT_N).toLowerCase()+(1985+Math.floor(Math.random()*25)); }
+function botDiff(ranked){ const t=ranked?rankLoad().tier:1, p=[0.4,0.6,0.8,0.9,1][Math.min(4,t)]; return Math.random()<p?'x':'h'; }
+function startBot(ranked){
+  const others=ALL_CLS.filter(c=>c!==chosenCls); const other=others[Math.floor(Math.random()*others.length)];
+  const alt=AI_DECKS[other]&&Math.random()<0.6?AI_DECKS[other]:null;
+  const seed=privSeed(), name=botName(), diff=botDiff(ranked);
+  G=E.newGame({seed,classes:[chosenCls,other],names:['Tu',name],decks:[deckFor(chosenCls),alt?alt.d:null]}); me=0; vsAI=true; NET=null; sel=null;
+  G.aiDeck=alt?alt.n:'Mazzo base'; G.bot={name,diff}; G.ranked=!!ranked; G.oppRank=ranked?rankInfo():null;
+  G.rec={seed,classes:[chosenCls,other],decks:[deckFor(chosenCls),alt?alt.d:null],diff,log:[]};
+  render(); toast(`Avversario trovato: ${name} ⚙ (Sfidante del computer)`); aiLoop();
+}
 function aiLoop(){
   if(!vsAI||!G||busy) return;
-  const hard=G.rec?G.rec.diff==='h':SET.diff==='difficile';
-  const pickAi=()=>hard?E.aiHard(G,1):E.ai(G,1);
+  const lv=G.rec?G.rec.diff:(SET.diff==='difficile'?'h':'n');
+  const pickAi=()=>lv==='x'&&E.aiExpert?E.aiExpert(G,1):lv==='h'||lv==='x'?E.aiHard(G,1):E.ai(G,1);
   const a=pickAi();
   if(!a){ render(); return; }
   busy=true; const g0=G;
   setTimeout(()=>{ busy=false; if(!G||G!==g0) return; const b=pickAi(); if(!b){ render(); return; }
     const bc=JSON.parse(JSON.stringify(b)); const r=E.act(G,1,b); if(G.rec) G.rec.log.push([1,bc]);
     if(r&&b.type!=='end'){ E.act(G,1,{type:'end'}); if(G.rec) G.rec.log.push([1,{type:'end'},1]); }
-    render(); aiLoop(); }, window.FAST?15:Math.round((a.type==='mulligan'||a.type==='choose'?250:650)*(SPEED_MULT[SET.speed]||1)));
+    render(); aiLoop(); }, window.FAST?15:G.bot?Math.round((a.type==='mulligan'?1800:a.type==='end'?700:900+Math.random()*1500)*(SPEED_MULT[SET.speed]||1)):Math.round((a.type==='mulligan'||a.type==='choose'?250:650)*(SPEED_MULT[SET.speed]||1)));
 }
 
 // ======================= AZIONI DEL GIOCATORE
@@ -1265,7 +1288,7 @@ function render(){
     const pw=powerName(pl); const canP=isMe&&myTurn&&!pd&&E.canPower(G,me);
     const frm=isMe?SET.frame:(G.oppCosm&&G.oppCosm.frame); const frmC=frm&&COSM[frm]&&COSM[frm].k==='frame'?frm:'';
     const heroEl=`<div class="hero ${frmC} ${!isMe&&LETHAL.has('ehero')?'lethal':''} ${pl.mutated?'mut':''} ${isMe&&E.canHeroAttack(G,me)?'ready':''} ${isMe&&sel&&sel.uid==='hero'?'sel':''} ${(!isMe&&legalT.has('ehero'))||(isMe&&legalT.has('hero'))?'tg':''}" data-hero="${isMe?'me':'opp'}"><img src="${heroImg(pl)}" alt=""><span class="pf ${pl.pf<=10?'low':''}">${pl.pf}</span>${!isMe&&LETHAL.has('ehero')?'<div class="skull">☠</div>':''}${isMe?'<div class="skull me">☠</div>':''}${pl.heroA?`<span class="ha" title="Attacco dell'eroe in questo turno">${pl.heroA}</span>`:''}${pl.armor?`<span class="ar">${pl.armor}</span>`:''}</div>`;
-    const infoEl=`<div class="info"><b>${esc(pl.name)} · ${esc(HEROES[pl.cls].n)}${pl.mutated?' (Mutato)':''}</b>${!isMe&&vsAI&&G.aiDeck?`<small class="aideck">${G.aiDeck==='Mazzo base'?'Mazzo base':`Mazzo «${esc(G.aiDeck)}»`}</small>`:''}
+    const infoEl=`<div class="info"><b>${esc(pl.name)}${!isMe&&G.bot?' <span class="botmk" title="Sfidante del computer">⚙</span>':''} · ${esc(HEROES[pl.cls].n)}${pl.mutated?' (Mutato)':''}</b>${!isMe&&vsAI&&G.aiDeck&&!G.bot?`<small class="aideck">${G.aiDeck==='Mazzo base'?'Mazzo base':`Mazzo «${esc(G.aiDeck)}»`}</small>`:''}
         <div class="row" style="justify-content:flex-start;gap:6px"><span class="gra"><img src="art/gra_oro.svg" alt="GRA">${pl.gra}/${pl.graMax}</span>
         <span class="pill">Mazzo ${pl.deck.length}</span>${isMe?'':`<span class="pill">Mano ${pl.hand.length}</span>`}${pl.fatigue?`<span class="pill">Nebbia ${pl.fatigue}</span>`:''}${pl.esca?`<span class="pill" title="Il prossimo seguace occupa 2 slot">Esca attiva</span>`:''}${(pl.nsA||pl.nsD)?`<span class="pill" title="Eco dello Spirito: bonus permanente ai tuoi Spiriti futuri">Spiriti +${pl.nsA}/+${pl.nsD}</span>`:''}${pl.powerLock===pl.ownTurns&&pl.cls==='traccia'?`<span class="pill">Potere bloccato</span>`:''}</div>${coinsHtml(pl,isMe)}</div>`;
     const powerEl=`<div class="power pr-${pl.cls} ${canP?'can':'off'} ${isMe&&sel&&sel.kind==='power'?'sel':''}" data-power="${isMe?'me':'opp'}" data-pw="${isMe?'me':'opp'}"><img src="${powerImg(pl)}" alt="">${ringBand(pl.cls,isMe?'m':'o')}${ringSvg(pl.cls,isMe?'m':'o')}<span class="c">2</span></div>`;
@@ -1620,7 +1643,7 @@ function askSurrender(){
 function confirmBox(msg){
   const rk=G&&G.ranked&&!G.over;
   modal(`<h3>${esc(msg)}</h3>${rk?'<div class="note" style="margin:0 auto 10px">È una partita <b>classificata</b>: abbandonare conta come sconfitta.</div>':''}<div class="row"><button class="btn" id="mYes">Sì</button><button class="btn" id="mNo">No</button></div>`);
-  $('#mYes').onclick=()=>{ closeModal(); if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } const n=NET; if(n){ if(G&&!G.over){ try{ n.local(E.enrich(G,me,{type:'concede'})); }catch(e){} } setTimeout(()=>{ try{ n.leave(); }catch(e){} },600); } menu(); }; $('#mNo').onclick=closeModal;
+  $('#mYes').onclick=()=>{ closeModal(); if(G&&G.bot&&!G.over&&G.rec){ const a={type:'concede'}; if(!E.act(G,me,a)) G.rec.log.push([0,a]); if(G.over){ G.__sndOver=1; if(G.ranked&&ACC()&&SRV()){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; } gameReward(); } } if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } const n=NET; if(n){ if(G&&!G.over){ try{ n.local(E.enrich(G,me,{type:'concede'})); }catch(e){} } setTimeout(()=>{ try{ n.leave(); }catch(e){} },600); } menu(); }; $('#mNo').onclick=closeModal;
 }
 function modal(html,cls){ closeModal(); hidePeek(); const d=document.createElement('div'); d.className='ov'; d.id='ov'; d.innerHTML=`<div class="box ${cls||''}">${html}</div>`; d.onclick=e=>{ if(e.target===d && !d.dataset.lock) closeModal(); }; document.body.appendChild(d); return d; }
 function closeModal(){ const d=$('#ov'); if(d) d.remove(); }
@@ -1770,7 +1793,7 @@ function endParticles(d,win){ const box=d.querySelector('.endfx'); if(!box) retu
 function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
-  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
+  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&G.bot&&ACC()&&SRV()&&!G.__rankDone){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
     clearFx(); const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};

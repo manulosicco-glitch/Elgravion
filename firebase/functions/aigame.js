@@ -14,7 +14,8 @@ function verifyAi(E, AI_DECKS, rec, ownedOk){
   if (decks[0] && !E.deckCheck(classes[0], decks[0]).ok) return { ok: false, why: 'mazzo non valido' };
   if (!ownedOk(classes[0], decks[0])) return { ok: false, why: 'mazzo con carte non possedute' };
   if (decks[1] && !(AI_DECKS[classes[1]] && same(AI_DECKS[classes[1]].d, decks[1]))) return { ok: false, why: 'mazzo del computer non valido' };
-  const hard = rec.diff === 'h';
+  const lv = rec.diff === 'x' ? 'x' : rec.diff === 'h' ? 'h' : 'n';
+  if (lv === 'x' && typeof E.aiExpert !== 'function') return { ok: false, why: 'livello del computer sconosciuto' };
   let G; try { G = E.newGame({ seed: rec.seed >>> 0, classes, names: ['Tu', 'Computer'], decks }); } catch (e) { return { ok: false, why: 'avvio' }; }
   let lastErr = false;
   for (const row of log) {
@@ -23,7 +24,7 @@ function verifyAi(E, AI_DECKS, rec, ownedOk){
     if (!a || typeof a !== 'object') return { ok: false, why: 'registro corrotto' };
     if (pi === 1) {
       if (forced) { if (!lastErr || a.type !== 'end') return { ok: false, why: 'mossa del computer alterata' }; E.act(G, 1, { type: 'end' }); lastErr = false; continue; }
-      let exp; try { exp = hard ? E.aiHard(G, 1) : E.ai(G, 1); } catch (e) { exp = null; }
+      let exp; try { exp = lv === 'x' ? E.aiExpert(G, 1) : lv === 'h' ? E.aiHard(G, 1) : E.ai(G, 1); } catch (e) { exp = null; }
       if (!exp || !same(exp, a)) return { ok: false, why: 'mossa del computer alterata' };
       lastErr = !!E.act(G, 1, a) && a.type !== 'end';
     } else {
@@ -32,6 +33,6 @@ function verifyAi(E, AI_DECKS, rec, ownedOk){
     }
   }
   if (!G.over) return { ok: false, why: 'partita non conclusa' };
-  return { ok: true, win: G.winner === 0, turns: G.turn };
+  return { ok: true, win: G.winner === 0, turns: G.turn, lv };
 }
 module.exports = { verifyAi };
