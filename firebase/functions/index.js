@@ -50,7 +50,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 async function withProfile(uid, fn, opt){
   opt = opt || {}; let out, err = null; const X = (await game()).X;
   const tx = await db().ref('profiles/' + uid).transaction(cur => {
-    if (cur == null && !opt.create) { err = 'Profilo non trovato: accedi di nuovo.'; return; }
+    // Attenzione: al primo giro il server può passare null anche se il profilo esiste (non l'ha ancora letto).
+    // Restituire null fa ripetere la transazione con il valore vero; se il profilo non c'è davvero, non cambia nulla.
+    if (cur == null && !opt.create) { err = 'Profilo non trovato: accedi di nuovo.'; return null; }
     const p = X.norm(cur); err = null;
     try { out = fn(p); } catch (e) { if (e && e.user) { err = e.message; return; } throw e; }
     return p;
@@ -65,7 +67,8 @@ function ownsDeck(Gm, p, cls, deck){ const d = deck || Gm.E.DECKS[cls]; return !
 async function seasonRoll(uid){
   const now = R.seasonKey(); let old = null;
   const tx = await db().ref('ranks/' + uid).transaction(cur => {
-    if (!cur || !cur.season || cur.season === now) { old = null; return; }
+    if (cur == null) { old = null; return null; }
+    if (!cur.season || cur.season === now) { old = null; return; }
     old = cur; return Object.assign(R.normalize(cur), { updated: Date.now() });
   });
   if (!tx.committed || !old) return null;
