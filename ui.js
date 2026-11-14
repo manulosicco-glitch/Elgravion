@@ -1269,7 +1269,7 @@ function flipPlay(m){
 }
 const ART_DONE=new Set();
 function preloadArt(){ if(!G||G.__pre) return; G.__pre=1; const names=new Set();
-  for(const pl of G.players){ for(const x of (pl.deck||[])) names.add(x.n||x); for(const x of (pl.hand||[])) if(x&&x.n) names.add(x.n); }
+  try{ for(const pl of G.players){ for(const x of (pl.deck||[])) if(x) names.add(x.n||x); for(const x of (pl.hand||[])) if(x&&x.n) names.add(x.n); } }catch(e){}
   const list=[...names].map(n=>CARDS[n]&&CARDS[n].art).filter(a=>a&&!ART_DONE.has(a));
   let i=0; const step=()=>{ const t=performance.now(); while(i<list.length&&performance.now()-t<6){ const im=new Image(); im.decoding='async'; im.src=list[i]; ART_DONE.add(list[i]); i++; } if(i<list.length) (window.requestIdleCallback||setTimeout)(step); }; (window.requestIdleCallback||setTimeout)(step); }
 function render(){
