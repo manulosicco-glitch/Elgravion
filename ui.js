@@ -1853,10 +1853,10 @@ function overlays(){
   if(G.phase==='mulligan'){
     if(p.mulliganDone){ const d=modal(`<h3>In attesa dell'avversario…</h3>`); d.dataset.lock=1; return; }
     const pick=new Set();
-    const draw=()=>{ const d=modal(`<div class="mtitle"><span class="orn">❧</span><h3>Mano iniziale</h3><span class="orn r">❧</span></div>
+    const draw=()=>{ const d=modal(`${!TUT&&!(vsAI&&!SET.timer&&!NET)?`<div class="mtimer" id="mtmr" title="Tempo per scegliere">⏳ <span>${Math.ceil(Math.max(0,MULL_MS-(Date.now()-turnStart))/1000)}s</span></div>`:''}<div class="mtitle"><span class="orn">❧</span><h3>Mano iniziale</h3><span class="orn r">❧</span></div>
       <div class="note" style="margin:0 auto 4px">${p.hand.some(h=>['Epica','Leggendaria'].includes(E.card(h.n).r))?'Puoi rimettere nel mazzo solo le carte <b style="color:#d39bff">epiche</b> e <b style="color:#ffb84a">leggendarie</b>. Tocca quelle da cambiare.':'Non hai carte <b style="color:#d39bff">epiche</b> o <b style="color:#ffb84a">leggendarie</b> da cambiare: tieni la mano e inizia.'}</div>
       <div class="mullcards">${p.hand.map(h=>{const c=E.card(h.n);const ok=['Epica','Leggendaria'].includes(c.r);
-        return `<div class="mslot ${pick.has(h.uid)?'mpick':''} ${ok?'mok':'mkeep'}">${colCard(c,`data-m="${h.uid}"`)}<div class="mtag">${pick.has(h.uid)?'↻ Da cambiare':ok?'Tocca per cambiare':'Resta in mano'}</div></div>`;}).join('')}</div>
+        return `<div class="mslot ${pick.has(h.uid)?'mswap':''} ${ok?'mok':'mkeep'}">${colCard(c,`data-m="${h.uid}"`)}<div class="mtag">${pick.has(h.uid)?'↻ Da cambiare':ok?'Tocca per cambiare':'Resta in mano'}</div></div>`;}).join('')}</div>
       <div class="mfoot"><button class="btn mgo ${p.hand.some(h=>['Epica','Leggendaria'].includes(E.card(h.n).r))?'':'okgo'}" id="mOk">${pick.size?'Cambia e inizia':'Tieni e inizia'}</button></div>`,'mull'); d.dataset.lock=1;
       d.querySelectorAll('[data-m]').forEach(e=>e.onclick=()=>{ const uid=+e.dataset.m; const c=E.card(p.hand.find(h=>h.uid===uid).n); if(!['Epica','Leggendaria'].includes(c.r)) return; pick.has(uid)?pick.delete(uid):pick.add(uid); draw(); });
       $('#mOk').onclick=()=>{ closeModal(); send({type:'mulligan',uids:[...pick]}); }; };
@@ -1939,7 +1939,9 @@ function autoResolveMine(){ if(NET&&NET.waiting) return true; const pd=G.pending
 function paintTimer(){
   const el=$('#tmr'); const left=Math.max(0,(G&&G.phase==='mulligan'?MULL_MS:TURN_MS)-(Date.now()-turnStart)); if(!el||!G) return left;
   if(G.over||(vsAI&&!SET.timer&&!NET)){ el.textContent=''; return left; }
-  const s=Math.ceil(left/1000); el.textContent=(WIN_W<560?'':(G.phase==='mulligan'?'Mano ':(G.cur===me?'Tuo turno ':'Avversario ')))+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='timer'+(s<=15?' low':''); return left;
+  const s=Math.ceil(left/1000); el.textContent=(WIN_W<560?'':(G.phase==='mulligan'?'Mano ':(G.cur===me?'Tuo turno ':'Avversario ')))+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='timer'+(s<=15?' low':'');
+  const mt=$('#mtmr'); if(mt){ const sp=mt.querySelector('span'); if(sp) sp.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); mt.classList.toggle('low',s<=10); }
+  return left;
 }
 function tick(){
   const el=$('#tmr');
