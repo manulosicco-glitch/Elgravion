@@ -53,30 +53,47 @@
 
   // ---------- stanze in tempo reale ----------
   const roomApi = {
-    async join(name){
+    // messaggi già inviati nella stanza (per rientrare in una partita dopo una caduta o una chiusura dell'app)
+    async history(name, since, prev){
+      await needUser(); const prevs = new Set(prev || []);
+      const s = await firebase.database().ref('rooms/' + name + '/msgs').orderByChild('t').startAt(since || 0).once('value');
+      const list = []; s.forEach(c => { const m = c.val(); if (m && m.topic) list.push({ key: c.key, topic: m.topic, data: m.data == null ? null : m.data, t: m.t || 0, isMe: prevs.has(m.from) }); });
+      list.sort((a, b) => a.t - b.t);
+      return { list, lastT: list.length ? list[list.length - 1].t : (since || 0), keys: list.map(x => x.key) };
+    },
+    async join(name, opt){
+      opt = opt || {}; const prev = new Set(opt.prev || []), skip = new Set(opt.skip || []);
       const u = await needUser(); const db = firebase.database();
       const base = db.ref('rooms/' + name), peersRef = base.child('peers'), msgs = base.child('msgs');
-      const me = peersRef.push(), myKey = me.key;
+      const me = peersRef.push(), myKey = me.key; let myPres = null, left = false; const connCbs = new Set();
+      const mine = () => ({ uid: u.uid, kind: 'viewer', t: firebase.database.ServerValue.TIMESTAMP, presence: myPres });
       await me.onDisconnect().remove();
-      await me.set({ uid: u.uid, kind: 'viewer', t: firebase.database.ServerValue.TIMESTAMP });
+      await me.set(mine());
+      // se la rete cade e torna, la mia presenza va rimessa (il server l'ha tolta alla disconnessione)
+      const connRef = db.ref('.info/connected'); let wasOn = true;
+      const onConn = s => { const on = s.val() === true; if (left) return;
+        if (on && !wasOn) { me.onDisconnect().remove().then(() => me.set(mine())).catch(() => {}); }
+        if (on !== wasOn) connCbs.forEach(f => { try { f(on); } catch (e) {} }); wasOn = on; };
+      connRef.on('value', onConn);
       let peers = {}; const peerCbs = new Set(); const handlers = {};
       // si scarica solo la presenza che cambia, non tutta la lista ogni volta (meno traffico con tanti giocatori)
       const fire = () => peerCbs.forEach(f => { try { f(); } catch (e) {} });
       const onAdd = s => { peers[s.key] = s.val(); fire(); }, onDel = s => { delete peers[s.key]; fire(); };
       peersRef.on('child_added', onAdd); peersRef.on('child_changed', onAdd); peersRef.on('child_removed', onDel);
-      const q = msgs.orderByChild('t').startAt(now() - 30000);
-      const onMsg = s => { const m = s.val(); if (!m || !m.topic) return; (handlers[m.topic] || []).slice().forEach(f => { try { f({ isMe: m.from === myKey, data: m.data == null ? null : m.data }); } catch (e) {} }); };
+      const q = msgs.orderByChild('t').startAt(opt.since != null ? opt.since : now() - 30000);
+      const onMsg = s => { if (skip.has(s.key)) return; const m = s.val(); if (!m || !m.topic) return; const isMe = m.from === myKey || prev.has(m.from); (handlers[m.topic] || []).slice().forEach(f => { try { f({ isMe, data: m.data == null ? null : m.data }); } catch (e) {} }); };
       q.on('child_added', onMsg);
-      let left = false;
       return {
+        key: myKey,
+        onConn(cb){ connCbs.add(cb); return () => connCbs.delete(cb); },
         on(topic, cb){ (handlers[topic] = handlers[topic] || []).push(cb); return () => { handlers[topic] = (handlers[topic] || []).filter(x => x !== cb); }; },
         emit(topic, data){ if (left) return; msgs.push({ topic, data: clean(data), from: myKey, uid: u.uid, t: firebase.database.ServerValue.TIMESTAMP }).catch(() => {}); },
-        async presence(p){ await me.child('presence').set(clean(p)); },
+        async presence(p){ myPres = clean(p); await me.child('presence').set(myPres); },
         peers(){ return Object.entries(peers).map(([k, v]) => ({ id: k, isMe: k === myKey, kind: (v && v.kind) || 'viewer', presence: (v && v.presence) || null })); },
         onPeers(cb){ peerCbs.add(cb); return () => peerCbs.delete(cb); },
         leave(){
           if (left) return; left = true;
-          q.off('child_added', onMsg); peersRef.off('child_added', onAdd); peersRef.off('child_changed', onAdd); peersRef.off('child_removed', onDel);
+          connRef.off('value', onConn); q.off('child_added', onMsg); peersRef.off('child_added', onAdd); peersRef.off('child_changed', onAdd); peersRef.off('child_removed', onDel);
           me.remove().then(() => peersRef.once('value')).then(s => { if (!s.exists()) base.remove().catch(() => {}); }).catch(() => {});
         }
       };

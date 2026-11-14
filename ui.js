@@ -547,6 +547,7 @@ function menu(msg){
   $('#bHost').onclick=()=>{ if(needDeck()) hostOnline(); };
   $('#bJoin').onclick=()=>needDeck()&&joinOnline(($('#code').value||'').trim().toLowerCase());
   if(!ownLoad().start) starterModal();
+  else if(!RESUME_ASKED&&sessLoad()){ RESUME_ASKED=true; setTimeout(askResume,700); }
 }
 
 
@@ -1643,7 +1644,7 @@ function askSurrender(){
 function confirmBox(msg){
   const rk=G&&G.ranked&&!G.over;
   modal(`<h3>${esc(msg)}</h3>${rk?'<div class="note" style="margin:0 auto 10px">È una partita <b>classificata</b>: abbandonare conta come sconfitta.</div>':''}<div class="row"><button class="btn" id="mYes">Sì</button><button class="btn" id="mNo">No</button></div>`);
-  $('#mYes').onclick=()=>{ closeModal(); if(G&&G.bot&&!G.over&&G.rec){ const a={type:'concede'}; if(!E.act(G,me,a)) G.rec.log.push([0,a]); if(G.over){ G.__sndOver=1; if(G.ranked&&ACC()&&SRV()){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; } gameReward(); } } if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } const n=NET; if(n){ if(G&&!G.over){ try{ n.local(E.enrich(G,me,{type:'concede'})); }catch(e){} } setTimeout(()=>{ try{ n.leave(); }catch(e){} },600); } menu(); }; $('#mNo').onclick=closeModal;
+  $('#mYes').onclick=()=>{ closeModal(); if(G&&G.bot&&!G.over&&G.rec){ const a={type:'concede'}; if(!E.act(G,me,a)) G.rec.log.push([0,a]); if(G.over){ G.__sndOver=1; if(G.ranked&&ACC()&&SRV()){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; } gameReward(); } } if(rk&&!G.__rankDone){ G.__rankDone=true; rankResult(false,G.oppRank); toast('Partita abbandonata: −1 pendente'); } const n=NET; if(n){ sessClear(); if(G&&!G.over){ try{ n.local(E.enrich(G,me,{type:'concede'})); }catch(e){} } setTimeout(()=>{ try{ n.leave(); }catch(e){} },600); } menu(); }; $('#mNo').onclick=closeModal;
 }
 function modal(html,cls){ closeModal(); hidePeek(); const d=document.createElement('div'); d.className='ov'; d.id='ov'; d.innerHTML=`<div class="box ${cls||''}">${html}</div>`; d.onclick=e=>{ if(e.target===d && !d.dataset.lock) closeModal(); }; document.body.appendChild(d); return d; }
 function closeModal(){ const d=$('#ov'); if(d) d.remove(); }
@@ -1793,7 +1794,7 @@ function endParticles(d,win){ const box=d.querySelector('.endfx'); if(!box) retu
 function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
-  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&G.bot&&ACC()&&SRV()&&!G.__rankDone){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
+  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; if(NET) sessClear(); gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&G.bot&&ACC()&&SRV()&&!G.__rankDone){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
     clearFx(); const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};
@@ -1919,39 +1920,69 @@ async function getRoom(){
 function setNetMsg(s){ const n=$('#netmsg'); if(n) n.textContent=s; }
 function myCosm(){ const own=new Set(ownLoad().cosm||[]); const ok=k=>SET[k]&&own.has(SET[k])?SET[k]:null; return {back:ok('back'),frame:ok('frame')}; }
 // se l'avversario esce dalla stanza e non torna entro 20 secondi, la partita è vinta per abbandono
+// ---- RIENTRO NELLE PARTITE ONLINE: la partita in corso resta salvata in questo dispositivo;
+// se la rete cade o l'app si chiude, si riapre la stessa stanza e si rigiocano le mosse già fatte.
+const SKEY='elg_sess_v1'+(window.ELG_SESS_NS||''); let RESUME_ASKED=false;
+function sessSave(net){ if(!net||!G||G.over||!net.startData) return; try{ localStorage.setItem(SKEY,JSON.stringify({v:1,t:Date.now(),t0:net.t0,host:net.host,code:net.code,rname:net.rname,key:net.r&&net.r.key,prev:net.prev||[],priv:net.priv,hn:net.hn||null,gn:net.gn||null,srv:!!net.srv,ranked:!!net.ranked,mode:net.mode||null,cls:chosenCls,deck:deckFor(chosenCls),start:net.startData,gRanked:!!G.ranked,oppRank:G.oppRank||null,oppCosm:G.oppCosm||{}})); }catch(e){} }
+function sessLoad(){ try{ const s=JSON.parse(localStorage.getItem(SKEY)||'null'); if(!s||s.v!==1||Date.now()-s.t>10*60000||!s.key) return null; return s; }catch(e){ return null; } }
+function sessClear(){ try{ localStorage.removeItem(SKEY); }catch(e){} }
+// all'avvio il menu può comparire prima che l'account sia pronto: controllo per qualche secondo se c'è una partita da riprendere
+{ let n=0; const t=setInterval(()=>{ if(++n>20||RESUME_ASKED){ clearInterval(t); return; } if(!G&&(!$('#ov')||$('#ov .stgrid'))&&document.querySelector('.menu')&&ownLoad().start&&sessLoad()){ RESUME_ASKED=true; clearInterval(t); askResume(); } },700); }
+function askResume(){ const s=sessLoad(); if(!s||G||window.claude||!window.ELG_NET) return;
+  modal(`<h3>Partita online in corso</h3><div class="note" style="margin:0 auto 12px">Eri in una partita ${s.ranked?'<b>classificata</b>':'amichevole'} con ${esc(HEROES[s.cls]?HEROES[s.cls].n:'')}. Vuoi rientrare? Le mosse fatte finora restano.</div><div class="row"><button class="btn" id="rsYes">↩ Rientra nella partita</button><button class="btn" id="rsNo">Lascia perdere</button></div>`);
+  $('#rsYes').onclick=()=>{ closeModal(); resumeOnline(s); };
+  $('#rsNo').onclick=()=>{ sessClear(); closeModal(); if(s.ranked) toast('Partita lasciata: in classificata conta come sconfitta.'); }; }
+function resumeOnline(s){ if(ALL_CLS.includes(s.cls)) chosenCls=s.cls; const o={ranked:s.ranked,mode:s.mode,resume:s};
+  app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Rientro nella partita…</h3><div class="note" id="netmsg">Ricollego la stanza e recupero le mosse.</div></div>`;
+  (s.host?hostOnline(s.code,o):joinOnline(s.code,o)).catch(()=>{ menu(); toast('Rientro non riuscito.'); }); }
+// avvisi sulla mia connessione: la presenza torna da sola quando la rete riprende
+function connWatch(net){ if(!net.r||!net.r.onConn) return; let lostT=0;
+  net.unsub.push(net.r.onConn(on=>{ if(NET!==net) return; if(!on){ lostT=Date.now(); toast('Connessione persa: riprovo…'); } else { toast('Connessione ripristinata'); if(net.host) net.r.emit('sync',{n:net.log.length}); else net.r.emit('need',{from:net.applied}); } })); }
 function netWatch(net){
   let gone=null; const others=()=>net.r.peers().filter(p=>!p.isMe&&p.kind==='viewer').length;
   const un=net.r.onPeers(()=>{ if(!G||G.over||NET!==net) return;
-    if(others()===0){ if(!gone) gone=setTimeout(()=>{ if(G&&!G.over&&NET===net&&others()===0){ G.over=true; G.winner=me; G.abandon=true; G.log.push('L\'avversario ha abbandonato la partita.'); render(); } },20000); }
-    else if(gone){ clearTimeout(gone); gone=null; } });
+    if(others()===0){ if(!gone){ toast('L\'avversario si è disconnesso: aspetto 45 secondi che rientri…'); gone=setTimeout(()=>{ if(G&&!G.over&&NET===net&&others()===0){ G.over=true; G.winner=me; G.abandon=true; G.log.push('L\'avversario ha abbandonato la partita.'); render(); } },45000); } }
+    else if(gone){ clearTimeout(gone); gone=null; toast('L\'avversario è rientrato'); if(net.host) net.r.emit('sync',{n:net.log.length}); } });
   net.unsub.push(un); net.unsub.push(()=>gone&&clearTimeout(gone));
+  connWatch(net); sessSave(net); net.timers.push(setInterval(()=>{ if(NET===net&&G&&!G.over) sessSave(net); },10000));
 }
 async function hostOnline(codeArg,opt){
   opt=opt||{};
   setNetMsg('Collegamento…');
   const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
-  const code=codeArg||Math.random().toString(36).slice(2,7);
-  const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
-  let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
-  const net={host:true,code,r,log:[],seen:new Set(),applied:0,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
-  NET=net; me=0; vsAI=false; net.priv=privSeed();
-  if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.hn=randHex();
+  const RS=opt.resume||null;
+  const code=RS?RS.code:(codeArg||Math.random().toString(36).slice(2,7));
+  const rname=RS?RS.rname:'elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
+  const prev=RS?[RS.key,...(RS.prev||[])]:[]; let hist=null;
+  if(RS){ try{ hist=await room.history(rname,RS.t0-120000,prev); }catch(e){ menu(); return toast('Rientro non riuscito: stanza non raggiungibile.'); } }
+  let r; try{ r=await room.join(rname,RS?{since:hist.lastT,skip:hist.keys,prev}:undefined); }catch(e){ return setNetMsg('Impossibile creare la stanza: '+(e.code||e.message)); }
+  const net={host:true,code,r,log:[],seen:new Set(),applied:0,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode,rname,prev,t0:RS?RS.t0:Date.now()};
+  NET=net; me=0; vsAI=false; net.priv=RS?RS.priv:privSeed();
+  if(RS){ if(RS.srv){ net.srv=true; net.room=rname; net.hn=RS.hn; } }
+  else if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.hn=randHex();
     try{ await ELG_NET.rk.register(net.room,{cls:chosenCls,deck:deckFor(chosenCls),hc:await sha256hex(net.hn)}); }
     catch(e){ try{r.leave()}catch(x){} NET=null; menu(); return toast('Classificata: registrazione sul server non riuscita. Riprova.'); } }
-  if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
+  if(RS){}
+  else if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
   else {
   app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Codice partita: <span style="letter-spacing:6px">${code.toUpperCase()}</span></h3>
    <div class="note">Dai questo codice al tuo avversario: deve aprire questa pagina, scegliere la classe, scrivere il codice e premere Unisciti.</div><div class="note" id="netmsg">In attesa dell'avversario…</div><button class="btn" id="bBack">Annulla</button></div>`;
   $('#bBack').onclick=()=>menu();
   }
   let start=null;
+  if(RS){ start=RS.start; net.startData=start;
+    G=E.newGame({seed:start.seed,classes:start.classes,names:['Tu','Avversario'],priv:[net.priv,null],online:true,decks:[RS.deck||deckFor(chosenCls),null]});
+    G.ranked=RS.gRanked; G.oppRank=RS.oppRank; G.oppCosm=RS.oppCosm||{};
+    const acts={}; for(const m of hist.list) if(m.topic==='act'&&m.data&&m.data.i!=null) acts[m.data.i]=m.data;
+    for(let i=0;acts[i];i++){ const d=acts[i]; E.act(G,d.pi,d.a); net.log.push({pi:d.pi,a:d.a,nonce:d.nonce}); if(d.nonce) net.seen.add(d.nonce); }
+    netWatch(net); render(); r.emit('sync',{n:net.log.length}); toast('Sei rientrato nella partita'); }
   net.unsub.push(r.on('hello',m=>{
     if(m.isMe) return; const cls=ALL_CLS.includes(m.data&&m.data.cls)?m.data.cls:'sirena';
     if(net.ranked && !(m.data&&m.data.ranked)) return; // in classificata solo avversari in classificata
     if(net.srv && !(m.data&&m.data.gn)) return;
     if(!start){ start={seed:net.srv?srvSeed(net.room,net.hn,m.data.gn):(Math.random()*4e9)>>>0,classes:[chosenCls,cls],ranked:net.ranked,rank:net.ranked?rankInfo():null,cosm:myCosm()}; if(net.srv){ start.hn=net.hn; start.gn=m.data.gn; }
       G=E.newGame({seed:start.seed,classes:start.classes,names:['Tu','Avversario'],priv:[net.priv,null],online:true,decks:[deckFor(chosenCls),null]});
-      G.ranked=net.ranked; G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; netWatch(net); render(); }
+      G.ranked=net.ranked; G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; net.startData=start; netWatch(net); render(); }
     r.emit('start',start);
   }));
   net.unsub.push(r.on('req',m=>{
@@ -1972,14 +2003,19 @@ async function joinOnline(code,opt){
   if(!opt.mode && !/^[a-z0-9]{4,6}$/.test(code)) return setNetMsg('Scrivi il codice della partita (5 caratteri).');
   setNetMsg('Collegamento…');
   const room=await getRoom(); if(!room) return setNetMsg((window.claude?'L\'online non è disponibile in questa vista. Apri la pagina dal suo link su claude.ai.':window.ELG_NET?'Collegamento non riuscito: controlla la connessione e di aver fatto l\'accesso con Google.':'Il gioco online e la Classificata sono nella versione online (manulosicco-glitch.github.io/Elgravion), con l\'accesso Google. Intanto puoi giocare contro il computer.'));
-  const rname='elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
-  let r; try{ r=await room.join(rname); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
-  const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode};
-  NET=net; me=1; vsAI=false; net.priv=privSeed();
-  if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.gn=randHex();
+  const RS=opt.resume||null;
+  const rname=RS?RS.rname:'elg-'+(SRV()&&!/^rk/.test(code)?'am':'')+code;
+  const prev=RS?[RS.key,...(RS.prev||[])]:[]; let hist=null;
+  if(RS){ try{ hist=await room.history(rname,RS.t0-120000,prev); }catch(e){ menu(); return toast('Rientro non riuscito: stanza non raggiungibile.'); } }
+  let r; try{ r=await room.join(rname,RS?{since:hist.lastT,skip:hist.keys,prev}:undefined); }catch(e){ return setNetMsg('Impossibile entrare: '+(e.code||e.message)); }
+  const net={host:false,code,r,buf:{},applied:0,waiting:null,unsub:[],timers:[],ranked:!!opt.ranked,mode:opt.mode,rname,prev,t0:RS?RS.t0:Date.now()};
+  NET=net; me=1; vsAI=false; net.priv=RS?RS.priv:privSeed();
+  if(RS){ if(RS.srv){ net.srv=true; net.room=rname; net.gn=RS.gn; } }
+  else if(SRV()&&/^elg-(rk|am)/.test(rname)){ net.srv=true; net.room=rname; net.gn=randHex();
     try{ await ELG_NET.rk.register(net.room,{cls:chosenCls,deck:deckFor(chosenCls),gn:net.gn}); }
     catch(e){ try{r.leave()}catch(x){} NET=null; menu(); return toast('Classificata: registrazione sul server non riuscita. Riprova.'); } }
-  if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
+  if(RS){}
+  else if(opt.mode){ app.innerHTML=`<div class="menu"><h1>ELGRAVION</h1><h3 style="font-family:Cinzel;color:var(--gold2)">Avversario trovato</h3><div class="note" id="netmsg">Collegamento in corso…</div><button class="btn" id="bBack">Annulla</button></div>`; $('#bBack').onclick=()=>{ if(NET===net) net.leave(); NET=null; menu(); }; }
   else setNetMsg('Entrato. In attesa che la partita parta…');
   const applyBuf=()=>{ let ch=false; while(net.buf[net.applied]){ const m=net.buf[net.applied]; delete net.buf[net.applied]; E.act(G,m.pi,m.a); if(net.waiting&&m.nonce===net.waiting.nonce) net.waiting=null; net.applied++; ch=true; } if(ch) render(); };
   let checking=false;
@@ -1990,7 +2026,12 @@ async function joinOnline(code,opt){
       checking=false; if(G||NET!==net) return;
       if(!ok){ net.leave(); NET=null; menu(); return toast('Partita classificata non valida: annullata.'); } }
     G=E.newGame({seed:m.data.seed,classes:m.data.classes,names:['Avversario','Tu'],priv:[null,net.priv],online:true,decks:[null,deckFor(chosenCls)]});
-    G.ranked=!!(net.ranked&&m.data.ranked); G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; netWatch(net); render(); applyBuf(); }));
+    G.ranked=!!(net.ranked&&m.data.ranked); G.oppRank=m.data.rank||null; G.oppCosm=m.data.cosm||{}; net.startData=m.data; netWatch(net); render(); applyBuf(); }));
+  if(RS){ const st=RS.start; net.startData=st;
+    G=E.newGame({seed:st.seed,classes:st.classes,names:['Avversario','Tu'],priv:[null,net.priv],online:true,decks:[null,RS.deck||deckFor(chosenCls)]});
+    G.ranked=RS.gRanked; G.oppRank=RS.oppRank; G.oppCosm=RS.oppCosm||{};
+    for(const m of hist.list) if(m.topic==='act'&&m.data&&m.data.i!=null&&m.data.i>=net.applied) net.buf[m.data.i]=m.data;
+    netWatch(net); applyBuf(); render(); r.emit('need',{from:net.applied}); toast('Sei rientrato nella partita'); }
   net.unsub.push(r.on('act',m=>{ const d=m.data; net.lastRx=Date.now(); if(!d||d.i<net.applied) return; net.buf[d.i]=d; if(G) applyBuf();
     // manca una mossa prima di questa: la chiedo subito invece di aspettare il controllo periodico
     if(G&&!net.buf[net.applied]&&Object.keys(net.buf).length&&Date.now()-(net.askT||0)>2000){ net.askT=Date.now(); r.emit('need',{from:net.applied}); } }));
@@ -2033,6 +2074,8 @@ async function accSync(){
     let local=null; try{ local=JSON.parse(localStorage.getItem(OKEY)||'null'); }catch(e){}
     const r=await window.ELG_NET.econ('sync',{local});
     ACC_ON=true; setProfile(r.profile);
+    // l'account ha già una classe: se nel frattempo era comparsa la scelta iniziale, la chiudo
+    { const ov=$('#ov'); if(ov&&ov.querySelector('.stgrid')&&ownLoad().start&&!G){ closeModal(); menu(); } }
     if(r.season&&r.season.rw){ rankLoad(); RANK.__reward={end:r.season.end,rw:r.season.rw,gained:r.season.gained||[]}; }
     // mazzi: quelli sull'account vincono; se non ce ne sono, si caricano quelli di questo dispositivo
     let sd=null; try{ sd=await window.ELG_NET.decks.get(); }catch(e){}
