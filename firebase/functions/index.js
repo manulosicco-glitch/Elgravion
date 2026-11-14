@@ -85,6 +85,10 @@ async function seasonRoll(uid){
 
 // ---------- economia ----------
 exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60 }, async (req) => {
+  try { return await economiaOp(req); }
+  catch (e) { const d = req.data || {}; logger.warn('economia rifiutata', { op: d.op, uid: req.auth && req.auth.uid, code: e.code, msg: e.message, size: d.op === 'claimAi' ? JSON.stringify(d.rec || null).length : undefined }); throw e; }
+});
+async function economiaOp(req){
   if (!req.auth) throw new HttpsError('unauthenticated', 'Accedi con Google.');
   const uid = req.auth.uid, d = req.data || {}, op = d.op; const Gm = await game(), X = Gm.X;
   switch (op) {
@@ -131,7 +135,7 @@ exports.economia = onCall({ region: REGION, memory: '512MiB', timeoutSeconds: 60
     }
     default: throw new HttpsError('invalid-argument', 'Operazione sconosciuta.');
   }
-});
+}
 
 // ---------- arbitro delle partite online ----------
 exports.arbitro = onValueWritten({ ref: '/ranked/{room}/end/{uid}', region: REGION, instance: INSTANCE, memory: '256MiB', timeoutSeconds: 60 }, async (ev) => {

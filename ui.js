@@ -849,7 +849,7 @@ function gameReward(){
     if(NET&&NET.srv) return G.__rew={pending:true};
     if(vsAI&&G.rec){ G.__rew={pending:true};
       const rk=!!(g.bot&&g.ranked&&SRV());
-      econDo('claimAi',{rec:G.rec,ranked:rk},true).then(async r=>{ g.__rew=r&&r.res?r.res:{none:1,why:'Premio non verificato.'};
+      (async()=>{ let why='Premio non verificato.'; try{ const x=await window.ELG_NET.econ('claimAi',{rec:g.rec,ranked:rk}); if(x&&x.profile) setProfile(x.profile); return x; }catch(e){ why=(e&&e.message)?'Premio non verificato: '+e.message:why; g.__why=why; return null; } })().then(async r=>{ g.__rew=r&&r.res?r.res:{none:1,why:g.__why||'Premio non verificato.'};
         if(rk){ RANK_HOLD=0; await rankPull(true); g.__rankRes=r&&r.rank?r.rank:{void:true,note:'Partita non verificata: rango invariato.'}; const k=document.querySelector('.rkend'); if(k&&G===g) k.outerHTML=rankEndHtml(); }
         const el=document.querySelector('.endrew'); if(el&&G===g) el.outerHTML=rewardHtml(); });
       return G.__rew; }
@@ -1082,7 +1082,7 @@ function botName(){ const R=a=>a[Math.floor(Math.random()*a.length)], n=Math.flo
   if(k<0.35) return R(BOT_A)+R(BOT_B)+(Math.random()<0.6?n:'');
   if(k<0.65) return R(BOT_N)+(Math.random()<0.5?'_':'')+R(BOT_A).toLowerCase()+(Math.random()<0.5?n:'');
   if(k<0.85) return R(BOT_A)+'_'+n; return R(BOT_N).toLowerCase()+(1985+Math.floor(Math.random()*25)); }
-function botDiff(ranked){ const t=ranked?rankLoad().tier:1, p=[0.4,0.6,0.8,0.9,1][Math.min(4,t)]; return Math.random()<p?'x':'h'; }
+function botDiff(ranked){ if(!E.aiExpert) return 'h'; const t=ranked?rankLoad().tier:1, p=[0.4,0.6,0.8,0.9,1][Math.min(4,t)]; return Math.random()<p?'x':'h'; }
 function startBot(ranked){
   const others=ALL_CLS.filter(c=>c!==chosenCls); const other=others[Math.floor(Math.random()*others.length)];
   const alt=AI_DECKS[other]&&Math.random()<0.6?AI_DECKS[other]:null;
