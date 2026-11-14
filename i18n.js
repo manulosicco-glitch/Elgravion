@@ -50,7 +50,8 @@
   function trText(t){
     const s = t.trim(); if (!s || s.length > 400) return null;
     let r = look(s);
-    if (!r) for (const [re, rep] of PATS) { if (re.test(s)) { r = s.replace(re, rep); break; } }
+    // nei modelli i pezzi variabili (nomi di carte, giocatori…) vengono tradotti a loro volta
+    if (!r) for (const [re, rep] of PATS) { const m = s.match(re); if (m) { r = typeof rep !== 'string' ? s.replace(re, rep) : s.replace(re, () => rep.replace(/\$(\d)/g, (_, i) => { const v = m[+i]; return v == null ? '' : (look(v) || v); })); break; } }
     if (!r || r === s) return null;
     return t.replace(s, r);
   }
