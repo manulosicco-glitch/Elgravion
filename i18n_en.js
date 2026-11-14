@@ -240,6 +240,18 @@ words: {
 },
 // ---------- Interface: exact texts
 ui: {
+"Nuova versione di Elgravion":"New version of Elgravion",
+"Si installa a fine partita":"It installs at the end of the match",
+"Aggiorna ora":"Update now",
+"⟳ Aggiorna ora":"⟳ Update now",
+"Più tardi":"Later",
+"❧ Nuove carte all'orizzonte ❧":"❧ New cards on the horizon ❧",
+"È arrivata una":"A",
+"nuova versione di Elgravion":"new version of Elgravion",
+". Aggiorna per avere le ultime novità e correzioni: la tua collezione, i mazzi e il rango restano dove sono.":" has arrived. Update to get the latest news and fixes: your collection, decks and rank stay where they are.",
+"Si aggiornerà la prossima volta che apri il gioco":"It will update the next time you open the game",
+"✦ Elgravion è aggiornato ✦":"✦ Elgravion is up to date ✦",
+"Aggiornare adesso? Potrai rientrare nella partita online dal menu.":"Update now? You can rejoin the online match from the menu.",
 "2 danni a tutti i seguaci · ogni giocatore pesca una carta (chi gioca per secondo ne pesca due) · i seguaci pescati otterranno Mutare":"2 damage to all minions · each player draws a card (whoever plays second draws two) · the minions drawn will gain Mutate",
 "Ogni 3 turni uno dei tuoi slot prende il colore della tua emozione (chi gioca per secondo inizia al turno 2). Un seguace della tua classe giocato lì riceve il bonus della classe. Dal 3° slot d'Emozione si attiva il":"Every 3 turns one of your slots takes the color of your emotion (whoever plays second starts on turn 2). A minion of your class played there receives the class bonus. From the 3rd Emotion slot,",
 "Quando il giocatore che ha iniziato arriva al suo 10° turno (e poi al 20°, al 30°…) la Nebbia avanza: infligge 2 danni a tutti i seguaci in gioco, di entrambi i giocatori, poi ogni giocatore pesca una carta (alla prima ondata chi gioca per secondo ne pesca due). Se la carta pescata è un Seguace, quando lo giochi ottiene":"When the player who went first reaches their 10th turn (and then the 20th, the 30th…) the Mist advances: it deals 2 damage to every minion in play, for both players, then each player draws a card (on the first wave whoever plays second draws two). If the drawn card is a Minion, when you play it it gains",

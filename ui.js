@@ -2,7 +2,7 @@
 const E=Engine, $=s=>document.querySelector(s), app=$('#app');
 const CLS_COLOR={minatore:'#3d7be0',sirena:'#e0374f',adepto:'#2fae6a',traccia:'#b0707a',incisore:'#c9d6c4',scudiera:'#d4b36a',neutrali:'#8e7fb0'};
 const EMO_COLOR={minatore:'#3d8bff',sirena:'#ff3a55',adepto:'#3ddc84',traccia:'#cfc6d8',incisore:'#f4f4f4',scudiera:'#9aa0a8'};
-const ALL_CLS=Object.keys(HEROES); const TURN_MS=90000;
+const ALL_CLS=Object.keys(HEROES); const TURN_MS=90000, MULL_MS=50000; // turno 1:30, scelta della mano iniziale 50 secondi
 let turnKey=null, turnStart=0, timedOut=false, autoPeg=null;
 let shielded=new Set();
 let G=null, me=0, vsAI=false, NET=null, sel=null, chosenCls='minatore', logOn=false, busy=false, toastT=null;
@@ -498,6 +498,24 @@ document.addEventListener('keydown',e=>{
   }
 });
 // ======================= MENU
+// ======================= AGGIORNAMENTO DISPONIBILE: avviso a tema Elgravion
+// Il service worker installa la nuova versione in sottofondo; qui si avvisa subito il giocatore.
+// Durante una partita compare un avviso discreto (si aggiorna a fine partita o quando si vuole); nel menu, il riquadro completo.
+let UPD_READY=false, UPD_SHOWN=false;
+window.elgUpdateReady=function(){ UPD_READY=true; showUpdate(); };
+function doUpdate(){ try{ sessionStorage.setItem('elg_upd_done','1'); }catch(e){} location.reload(); }
+function showUpdate(){
+  if(!UPD_READY) return;
+  if(G&&!G.over){ if(document.querySelector('.updbar')) return;
+    const b=document.createElement('div'); b.className='updbar'; b.innerHTML=`<img src="art/gra_oro.svg" alt=""><span><b>Nuova versione di Elgravion</b><small>Si installa a fine partita</small></span><button class="btn sm" id="updNow">Aggiorna ora</button><button class="updx" title="Chiudi">✕</button>`;
+    document.body.appendChild(b); b.querySelector('#updNow').onclick=()=>{ if(NET||(G&&G.ranked)){ if(!confirm('Aggiornare adesso? Potrai rientrare nella partita online dal menu.')) return; } doUpdate(); }; b.querySelector('.updx').onclick=()=>b.remove(); return; }
+  if(UPD_SHOWN||($('#ov')&&$('#ov').dataset.lock)) return; UPD_SHOWN=true; document.querySelectorAll('.updbar').forEach(x=>x.remove());
+  const d=modal(`<div class="updbox"><div class="updrays"></div><img class="updcoin" src="art/gra_oro.svg" alt="">
+    <h3 class="updh">❧ Nuove carte all'orizzonte ❧</h3>
+    <div class="note">È arrivata una <b>nuova versione di Elgravion</b>. Aggiorna per avere le ultime novità e correzioni: la tua collezione, i mazzi e il rango restano dove sono.</div>
+    <div class="row"><button class="btn big" id="updGo">⟳ Aggiorna ora</button><button class="btn" id="updLater">Più tardi</button></div></div>`,'updmodal');
+  sfx('leg'); $('#updGo').onclick=doUpdate; $('#updLater').onclick=()=>{ closeModal(); toast('Si aggiornerà la prossima volta che apri il gioco'); };
+}
 function menu(msg){
   closeModal(); TUT=null; tutBox();
   { const o=ownLoad(); if(o.start && !canPlayCls(chosenCls)) chosenCls=o.start; }
@@ -548,6 +566,7 @@ function menu(msg){
   $('#bHost').onclick=()=>{ if(needDeck()) hostOnline(); };
   $('#bJoin').onclick=()=>needDeck()&&joinOnline(($('#code').value||'').trim().toLowerCase());
   if(!ownLoad().start) starterModal();
+  else if(UPD_READY&&!UPD_SHOWN) setTimeout(showUpdate,400);
   else if(!RESUME_ASKED&&sessLoad()){ RESUME_ASKED=true; setTimeout(askResume,700); }
 }
 
@@ -1825,7 +1844,7 @@ function endParticles(d,win){ const box=d.querySelector('.endfx'); if(!box) retu
 function overlays(){
   const p=G.players[me], pd=G.pending[0];
   const ov=$('#ov'); if(ov&&ov.dataset.lock) ov.remove();
-  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; if(NET) sessClear(); gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&G.bot&&ACC()&&SRV()&&!G.__rankDone){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
+  if(G.over){ const win=G.winner===me; if(!G.__sndOver){ G.__sndOver=1; document.querySelectorAll('.updbar').forEach(x=>x.remove()); if(NET) sessClear(); gameReward(); if(NET&&NET.srv&&!G.__srvDone){ G.__srvDone=true; srvEnd(NET,G); if(G.ranked){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } } if(G.ranked&&G.bot&&ACC()&&SRV()&&!G.__rankDone){ G.__rankDone=true; RANK_HOLD=Date.now()+120000; G.__rankRes=Object.assign(rankResult(G.winner===me,G.oppRank),{prov:true}); } if(G.ranked&&!G.__rankDone){ G.__rankDone=true; G.__rankRes=rankResult(G.winner===me,G.oppRank); } sfx(win?'win':'lose'); if(TUT){ TUT=null; tutBox(); } }
     clearFx(); const d=modal(endScreenHtml(win),'endbox '+(win?'win':'lose')); d.dataset.lock=1; d.classList.add('endov',win?'win':'lose');
     endParticles(d,win);
     const a=$('#mAgain'); if(a) a.onclick=()=>{closeModal();startLocal();}; $('#mMenu').onclick=()=>{closeModal();menu();};
@@ -1918,7 +1937,7 @@ function fx(){
 function privSeed(){ const a=new Uint32Array(1); (window.crypto||{getRandomValues:x=>{x[0]=Math.random()*4e9}}).getRandomValues(a); return a[0]>>>0; }
 function autoResolveMine(){ if(NET&&NET.waiting) return true; const pd=G.pending[0]; if(pd&&pd.p===me){ const a=E.ai(G,me); if(a&&a.type==='choose'){ closeModal(); send(a); return true; } } return false; }
 function paintTimer(){
-  const el=$('#tmr'); const left=Math.max(0,TURN_MS-(Date.now()-turnStart)); if(!el||!G) return left;
+  const el=$('#tmr'); const left=Math.max(0,(G&&G.phase==='mulligan'?MULL_MS:TURN_MS)-(Date.now()-turnStart)); if(!el||!G) return left;
   if(G.over||(vsAI&&!SET.timer&&!NET)){ el.textContent=''; return left; }
   const s=Math.ceil(left/1000); el.textContent=(WIN_W<560?'':(G.phase==='mulligan'?'Mano ':(G.cur===me?'Tuo turno ':'Avversario ')))+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='timer'+(s<=15?' low':''); return left;
 }
