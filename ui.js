@@ -472,13 +472,14 @@ function cancelAction(){
   if(gesture && gesture.mode==='drag'){
     window.removeEventListener('pointermove',gMove); window.removeEventListener('pointerup',gUp); window.removeEventListener('pointercancel',gUp);
     gesture=null; suppressClick=true; setTimeout(()=>suppressClick=false,350);
-    if(ghost){ ghost.remove(); ghost=null; } if(cardArrow){ cardArrow.remove(); cardArrow=null; }
+    const gh=ghost, uid=sel&&sel.uid; ghost=null; if(cardArrow){ cardArrow.remove(); cardArrow=null; }
     app.querySelectorAll('.hov').forEach(x=>x.classList.remove('hov'));
-    sel=null; render(); toast('Carta riportata in mano'); return true;
+    sel=null; render(); if(gh){ flyBackToHand(gh,uid); gh.remove(); } toast('Carta riportata in mano'); return true;
   }
   if(DRAG_ABORT){ const f=DRAG_ABORT; DRAG_ABORT=null; f(); return true; }
   const ov=$('#ov'); if(ov && !ov.dataset.lock){ closeModal(); return true; }
-  if(G && sel){ const k=sel.kind; sel=null; document.querySelectorAll('.dragline').forEach(x=>x.remove()); app.querySelectorAll('.hov').forEach(x=>x.classList.remove('hov')); render();
+  if(G && sel){ const k=sel.kind, stg=STAGED()?app.querySelector('.unit.staged'):null, suid=sel.uid; const box=stg?stg.getBoundingClientRect():null; sel=null;
+    if(stg){ if(STG){ STG.a.remove(); STG=null; } render(); if(box){ const f=document.createElement('div'); f.style.cssText=`position:fixed;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px`; document.body.appendChild(f); flyBackToHand(f,suid); f.remove(); } toast('Carta riportata in mano'); return true; } document.querySelectorAll('.dragline').forEach(x=>x.remove()); app.querySelectorAll('.hov').forEach(x=>x.classList.remove('hov')); render();
     toast(k==='attack'?'Attacco annullato':k==='power'?'Potere annullato':'Azione annullata'); return true; }
   return false;
 }
@@ -1266,8 +1267,13 @@ function flipPlay(m){
   document.querySelectorAll('.board .unit[data-u]').forEach(e=>{ const p=m.u.get(e.dataset.u); if(!p) return; const r=e.getBoundingClientRect(); const dx=p.x-(r.left+r.width/2), dy=p.y-(r.top+r.height/2);
     if(Math.abs(dx)+Math.abs(dy)>2) e.animate([{translate:`${dx}px ${dy}px`},{translate:'0 0'}],{duration:320,easing:ease}); });
 }
+const ART_DONE=new Set();
+function preloadArt(){ if(!G||G.__pre) return; G.__pre=1; const names=new Set();
+  for(const pl of G.players){ for(const x of (pl.deck||[])) names.add(x.n||x); for(const x of (pl.hand||[])) if(x&&x.n) names.add(x.n); }
+  const list=[...names].map(n=>CARDS[n]&&CARDS[n].art).filter(a=>a&&!ART_DONE.has(a));
+  let i=0; const step=()=>{ const t=performance.now(); while(i<list.length&&performance.now()-t<6){ const im=new Image(); im.decoding='async'; im.src=list[i]; ART_DONE.add(list[i]); i++; } if(i<list.length) (window.requestIdleCallback||setTimeout)(step); }; (window.requestIdleCallback||setTimeout)(step); }
 function render(){
-  if(!G){ return; }
+  if(!G){ return; } preloadArt();
   const p=G.players[me], o=G.players[1-me];
   const myTurn=G.cur===me && G.phase==='play' && !G.over;
   const pd=G.pending[0];
@@ -1303,7 +1309,7 @@ function render(){
     const pg=pl.pegno; const w=isMe?'me':'opp';
     if(!pg) return `<div class="pslot" data-peg="${w}"><span class="lbl">Pegno</span><span class="lbl">vuoto</span></div>`;
     const c=(isMe&&pg.n)?E.card(pg.n):null; const cost=c?E.pegnoCost(G,pl):null; const open=c&&pg.paid>=cost;
-    return `<div class="pslot full ${open?'open':''}" data-peg="${w}" title="Pegno">${c&&c.art?`<img src="${c.art}" alt="">`:'<div class="bk"></div>'}${open?'':'<div class="chains"></div>'}
+    return `<div class="pslot full ${open?'open':''}" data-peg="${w}" title="Pegno">${c&&c.art?`<img src="${c.art}" alt="" decoding="async">`:'<div class="bk"></div>'}${open?'':'<div class="chains"></div>'}
       ${c?`<div class="pn">${esc(c.n)}</div>`:''}<span class="lock">${open?'🔓':'🔒'}</span><span class="pl">${pg.paid}/${c?cost:'?'}</span></div>`;
   };
   const slotRow=(pl,isMe)=>{
@@ -1313,6 +1319,7 @@ function render(){
       const occ=s.unit&&G.units[s.unit]; h+=`<div class="slot ${occ?'occ':''} ${s.emo?'emo':''} ${s.sigillo?'sig':''} ${s.revoked?'rev':''} ${blk?'blk':''} ${(isMe&&hlSlots.has(i))||(!isMe&&hlOpp.has(i))?'hl':''}" style="--emo:${EMO_COLOR[pl.cls]};${occ?`--uc:${CLS_COLOR[E.card(occ.n).cl]}`:''}" data-slot="${isMe?'me':'opp'}:${i}">`;
       const u=s.unit&&G.units[s.unit];
       if(u && u.slots[0]===i) h+=unitHtml(u,isMe,legalT,myTurn);
+      else if(isMe&&!u&&STAGED()&&sel.slot===i) h+=stagedHtml();
       h+=`</div>`;
     });
     h+=`</div>${pegSlot(pl,isMe)}</div>`;
@@ -1322,7 +1329,7 @@ function render(){
   const oBack=G.oppCosm&&COSM[G.oppCosm.back]?' '+G.oppCosm.back:'';
   const oppHand=`<div class="oppHand">${o.hand.map(()=>`<div class="back${oBack}"></div>`).join('')}</div>`;
   const handHtml=p.hand.map(h=>{ const c=E.card(h.n); const k=E.costOf(G,p,h,null); const ok=myTurn&&!pd&&k<=p.gra; const live=ok&&playableNow(p,h,c);
-    return miniCard(c,k,`data-h="${h.uid}"`,`${ok?'':'no'} ${live?'can':''} ${sel&&sel.uid===h.uid&&sel.kind==='play'?'selh':''} ${h.fog&&c.t==='Seguace'?'fogc':''}`, k<c.c); }).join('');
+    return miniCard(c,k,`data-h="${h.uid}"`,`${ok?'':'no'} ${live?'can':''} ${sel&&sel.uid===h.uid&&sel.kind==='play'?(STAGED()?'selh staging':'selh'):''} ${h.fog&&c.t==='Seguace'?'fogc':''}`, k<c.c); }).join('');
   const flipPrev=flipCapture();
   app.innerHTML=`<div class="table">
     ${heroBar(o,false)}
@@ -1333,7 +1340,7 @@ function render(){
   </div>
   ${prompt&&!(sel&&sel.drag&&gesture)&&!dragging?`<div class="prompt">${esc(prompt2||prompt)} ${sel&&sel.step==='target'&&sel.req[sel.targets.length]&&sel.req[sel.targets.length].endsWith('Opt')?'<button class="btn sm" id="bSkip">Nessuno</button>':''} ${sel?'<button class="btn sm" id="bCancel">Annulla</button>':''}${pd&&pd.p===me&&pd.type==='sposta'?'<button class="btn sm" id="bStay">Resta</button>':''}</div>`:''}
   <div class="log ${logOn?'on':''}">${G.log.slice(-40).reverse().map(l=>`<div>${esc(l)}</div>`).join('')}</div>`;
-  hideUnitPeek(); histPopHide(); bindHist(); bind(legalT,hlSlots,hlOpp); setTimeout(coinPreviewFromState,0); paintTimer(); setupHand(); if(TUT){ tutCheck(); tutHL(); }
+  hideUnitPeek(); histPopHide(); bindHist(); bind(legalT,hlSlots,hlOpp); stageArrow(); setTimeout(coinPreviewFromState,0); paintTimer(); setupHand(); if(TUT){ tutCheck(); tutHL(); }
   overlays();
   fx();
   flipPlay(flipPrev);
@@ -1379,6 +1386,25 @@ function computeLethal(p,o){
   }
 }
 function targetPrompt(k){ k=k.replace('Opt',''); return {divina:'Divinazione: scegli il seguace nemico di cui predici la morte',allyRoom:'Scegli un tuo seguace che può ricevere una Protesi',protAny:'Scegli il seguace da cui togliere una Protesi',allyDrago:'Scegli un tuo Drago',ally:'Scegli un tuo seguace',enemy:'Scegli un seguace nemico',enemy2:'Scegli il seguace nemico da attaccare',any:'Scegli un seguace',enemyAtk3:'Scegli un seguace nemico con 3 o meno Attacco',piombo:'Scegli il tuo eroe (Armatura) o un tuo seguace (+0/+3)'}[k]||'Scegli un bersaglio'; }
+// ---- carta posata in attesa del bersaglio: il seguace è già nello slot (anteprima), la freccia parte da lui
+function STAGED(){ if(!G||!sel||sel.kind!=='play'||sel.step!=='target'||sel.slot==null||!sel.req||!sel.req.length) return false; const c=E.card(sel.n); return !!c&&(c.t==='Seguace'||c.t==='Dominio'); }
+function stagedHtml(){ const c=E.card(sel.n), wide=E.needsTwo(G,G.players[me],c);
+  return `<div class="unit staged ${wide?'wide':''} ${c.r==='Leggendaria'?'leg':''}" style="--uc:${CLS_COLOR[c.cl]}">${c.art?`<img src="${c.art}" alt="" decoding="async">`:''}${rarGem(c)}<div class="nm">${esc(tn(c.n))}</div>${c.t==='Seguace'?`<div class="a">${c.a}</div>`:''}<div class="d">${c.d}</div><div class="stg-ring"></div></div>`; }
+let STG=null, STG_XY=null;
+function stageArrow(){
+  const el=app.querySelector('.unit.staged');
+  if(!el){ if(STG){ STG.a.remove(); STG=null; } return; }
+  const r=el.getBoundingClientRect(), sx=r.left+r.width/2, sy=r.top+r.height/2;
+  if(STG&&Math.abs(STG.sx-sx)<1&&Math.abs(STG.sy-sy)<1&&document.body.contains(STG.svg)){ if(STG_XY) STG.a.to(STG_XY[0],STG_XY[1]); return; }
+  if(STG) STG.a.remove();
+  const a=mkArrow(sx,sy,'#7fd4ff'); STG={a,sx,sy,svg:document.body.lastElementChild};
+  const xy=STG_XY||[sx,sy-90]; a.to(xy[0],xy[1]);
+}
+window.addEventListener('pointermove',e=>{ if(!STG) return; STG_XY=[e.clientX,e.clientY]; STG.a.to(e.clientX,e.clientY); hoverAt(e.clientX,e.clientY,'.unit.tg,.hero.tg'); },{passive:true});
+// la carta torna in mano con un volo (annullata col tasto destro, Esc o Annulla)
+function flyBackToHand(fromEl,uid){ if(REDUCED||!fromEl) return; const r=fromEl.getBoundingClientRect(); const h=G&&G.players[me].hand.find(x=>x.uid===uid); if(!h) return;
+  const gh=document.createElement('div'); gh.className='ghost lift'; gh.innerHTML=miniCard(E.card(h.n),E.costOf(G,G.players[me],h,null)); gh.style.left=(r.left+r.width/2)+'px'; gh.style.top=(r.top+r.height/2)+'px'; document.body.appendChild(gh);
+  requestAnimationFrame(()=>{ const t=document.querySelector(`.hand .mc[data-h="${uid}"]`); if(!t){ gh.remove(); return; } const q=t.getBoundingClientRect(); t.classList.add('dragsrc'); gh.classList.add('home'); gh.style.left=(q.left+q.width/2)+'px'; gh.style.top=(q.top+q.height*0.7)+'px'; setTimeout(()=>{ gh.remove(); t.classList.remove('dragsrc'); },240); }); }
 function unitHtml(u,isMe,legalT,myTurn){
   const c=E.card(u.n), st=E.stat(u), hp=st.d-u.dmg;
   const kws=unitKws(u);
@@ -1388,20 +1414,20 @@ function unitHtml(u,isMe,legalT,myTurn){
   const cls=['unit',LETHAL.has(u.uid)?'lethal':'',KILLS.has(u.uid)?'kills':'',shielded.has(u.uid)?'shd':'',kws.includes('Ordalia')&&!u.akw.__noOrdalia?'ord':'',kws.includes('Lascito')?'lasc':'',kws.includes('Volo')?'volo':'',kws.includes('Estraneo')?'estr':'',u.tempra>0?'temp':'',(u.cantAttack||u.petri)?'petr':'',u.silenced?'sil':'',live?'emp':'',c.r==='Leggendaria'?'leg':'',u.kind==='domain'?'dom':'',u.kind!=='domain'&&u.slots.length>1?'wide':'',ready?'ready':'',sel&&sel.uid===u.uid&&sel.kind==='attack'?'sel':'',legalT.has(u.uid)?'tg':''].join(' ');
   const sp=spawnInfo(u,c);
   return `<div class="${cls} ${sp.cls}" style="--uc:${CLS_COLOR[c.cl]};--emo:${EMO_COLOR[G.players[u.owner].cls]};${sp.style}" data-u="${u.uid}">${sp.fx}${stoneHtml(u)}
-    ${c.art?`<img src="${c.art}" alt="">`:''}${rarGem(c)}<div class="nm">${esc(tn(u.n))}</div>
+    ${c.art?`<img src="${c.art}" alt="" decoding="async">`:''}${rarGem(c)}<div class="nm">${esc(tn(u.n))}</div>
     <div class="st">${status.map(s=>`<span>${s}</span>`).join('')}</div>
     <div class="kwi">${kws.map(k=>`<span class="k-${k.replace(/ /g,'')}" data-kw="${esc(k)}">${KW_ICON[k]||'•'}</span>`).join('')}</div>${kws.includes('Ordalia')&&!u.akw.__noOrdalia?'<div class="ordshield"></div>':''}
     ${LETHAL.has(u.uid)||(sel&&sel.kind==='attack'&&sel.uid===u.uid)?'<div class="skull">☠</div>':''}${u.scaglia?`<div class="sc" title="Scaglia">${u.scaglia}</div>`:''}${u.kind==='minion'?`<div class="a">${st.a}</div>`:''}<div class="d ${u.dmg?'hurt':''}">${hp}</div></div>`;
 }
 function miniCard(c,cost,attrs,extra,down){
-  const art=c.art?`<img class="ar" src="${c.art}" alt="">`:`<div class="ph">${c.star?'✦':c.nuova&&c.cl!=='neutrali'?`<img class="phs" src="art/simboli/${c.cl}.svg" alt="">`:'◆'}</div>`;
+  const art=c.art?`<img class="ar" src="${c.art}" alt="" decoding="async">`:`<div class="ph">${c.star?'✦':c.nuova&&c.cl!=='neutrali'?`<img class="phs" src="art/simboli/${c.cl}.svg" alt="">`:'◆'}</div>`;
   return `<div class="mc t-${c.t} ${c.r==='Leggendaria'?'leg':''} ${extra||''}" style="--uc:${CLS_COLOR[c.cl]}" ${attrs||''}>${art}${rose(c)}<div class="cost ${down?'dn':''}">${cost}</div>
     <div class="nm">${esc(tn(c.n))}</div><div class="tx fit">${kwHtml(tx(c))}</div>
     <div class="mbot">${c.t==='Seguace'?`<div class="a">${c.a}</div>`:'<span></span>'}${rarGem(c)||'<span></span>'}${c.t==='Seguace'||c.t==='Dominio'?`<div class="d">${c.d}</div>`:'<span></span>'}</div></div>`;
 }
 function typePlate(c){ return `<div class="tplate r-${({Comune:'c',Rara:'r',Epica:'e',Leggendaria:'l',Gettone:'g'})[c.r]||'g'}"><span>${esc(c.t)}</span>${c.tr?`<i>◆</i><span>${esc(c.tr)}</span>`:''}<i>◆</i><span>${esc(c.r)}</span></div>`; }
 function colCard(c,attrs,extra){
-  const art=c.art?`<img class="ar" src="${c.art}" alt="">`:`<div class="ph">${c.star?'✦':c.nuova&&c.cl!=='neutrali'?`<img class="phs" src="art/simboli/${c.cl}.svg" alt="">`:'◆'}</div>`;
+  const art=c.art?`<img class="ar" src="${c.art}" alt="" decoding="async">`:`<div class="ph">${c.star?'✦':c.nuova&&c.cl!=='neutrali'?`<img class="phs" src="art/simboli/${c.cl}.svg" alt="">`:'◆'}</div>`;
   const stats=c.t==='Seguace'?`<div class="a">${c.a}</div>`:'';
   const def=(c.t==='Seguace'||c.t==='Dominio')?`<div class="d">${c.d}</div>`:'';
   return `<div class="cc t-${c.t} ${c.r==='Leggendaria'?'leg':''} ${extra||''}" style="--uc:${CLS_COLOR[c.cl]}" ${attrs||''}>
@@ -1412,7 +1438,7 @@ function colCard(c,attrs,extra){
 }
 function bigCard(c,u){
   const st=u?E.stat(u):null;
-  return `<div class="big t-${c.t}" style="--uc:${CLS_COLOR[c.cl]};position:relative">${rose(c)}${c.art?`<img src="${c.art}" alt="">`:''}<div class="cost">${c.c}</div>
+  return `<div class="big t-${c.t}" style="--uc:${CLS_COLOR[c.cl]};position:relative">${rose(c)}${c.art?`<img src="${c.art}" alt="" decoding="async">`:''}<div class="cost">${c.c}</div>
    <div class="h">${esc(c.n)}</div>${typePlate(c)}
    <div class="x fit">${kwHtml(tx(c))}</div>
    ${c.t==='Seguace'?`<div class="sa"><span>${st?st.a:c.a}</span><span>${st?st.d-u.dmg:c.d}</span></div>`:c.t==='Dominio'?`<div class="sa"><span style="visibility:hidden"></span><span>${st?st.d-u.dmg:c.d}</span></div>`:''}</div>`;
@@ -1420,18 +1446,23 @@ function bigCard(c,u){
 
 // ======================= MANO: sempre tutta visibile, carta ingrandita al passaggio
 let peekUid=null, peekMoved=false, peekTimer=null, suppressClick=false;
+let HAND_GEOM=null, WIN_W=window.innerWidth, WIN_H=window.innerHeight;
+window.addEventListener('resize',()=>{ WIN_W=window.innerWidth; WIN_H=window.innerHeight; HAND_GEOM=null; });
 function fitHand(){
   const hd=$('.hand'); if(!hd) return; const cs=[...hd.querySelectorAll('.mc')];
-  const fan=window.innerWidth>760||LP(); hd.classList.toggle('fan',fan);
+  const fan=WIN_W>760||LP(); hd.classList.toggle('fan',fan);
   cs.forEach(c=>{ c.style.marginLeft='0px'; c.style.removeProperty('--fan'); });
   if(cs.length){
-    const w=cs[0].offsetWidth, avail=Math.min(hd.clientWidth-16, fan?w*7.2:1e9), n=cs.length, need=n*w+(n-1)*6;
+    // misure della mano in cache (cambiano solo con la finestra): niente ricalcolo forzato della pagina a ogni mossa
+    const gk=WIN_W+'x'+WIN_H+':'+fan+':'+document.body.className; if(!HAND_GEOM||HAND_GEOM.k!==gk||!HAND_GEOM.w) HAND_GEOM={k:gk,w:cs[0].offsetWidth,cw:hd.clientWidth};
+    const w=HAND_GEOM.w, avail=Math.min(HAND_GEOM.cw-16, fan?w*7.2:1e9), n=cs.length, need=n*w+(n-1)*6;
     const gap = need<=avail ? (fan?-w*0.12:6) : -Math.min(w*0.66,(n*w-avail)/(n-1));
     const step=fan?Math.min(7,44/Math.max(1,n-1)):0;
     cs.forEach((c,i)=>{ if(i) c.style.marginLeft=gap+'px'; c.style.zIndex=i+1;
       if(fan){ const k=i-(n-1)/2; c.style.setProperty('--fan',`translateY(${Math.round(k*k*step*0.55)}px) rotate(${(k*step).toFixed(2)}deg)`); } });
   }
-  hd.classList.add('measure'); measureHand(); handHover(); void hd.offsetWidth; hd.classList.remove('measure');
+  // le posizioni per l'hover servono solo col mouse: col dito si misurano solo quando servono
+  if(MOUSE_XY){ hd.classList.add('measure'); measureHand(); handHover(); void hd.offsetWidth; hd.classList.remove('measure'); } else HAND_RECTS=null;
   const oh=$('.oppHand'); if(oh){ const bs=[...oh.querySelectorAll('.back')], m=bs.length;
     bs.forEach((b2,i)=>{ const k=i-(m-1)/2; b2.style.transform=fan?`translateY(${Math.round(-k*k*1.2)}px) rotate(${(-k*5).toFixed(1)}deg)`:''; b2.style.marginLeft=(fan&&i)?'-10px':''; }); }
 }
@@ -1889,7 +1920,7 @@ function autoResolveMine(){ if(NET&&NET.waiting) return true; const pd=G.pending
 function paintTimer(){
   const el=$('#tmr'); const left=Math.max(0,TURN_MS-(Date.now()-turnStart)); if(!el||!G) return left;
   if(G.over||(vsAI&&!SET.timer&&!NET)){ el.textContent=''; return left; }
-  const s=Math.ceil(left/1000); el.textContent=(window.innerWidth<560?'':(G.phase==='mulligan'?'Mano ':(G.cur===me?'Tuo turno ':'Avversario ')))+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='timer'+(s<=15?' low':''); return left;
+  const s=Math.ceil(left/1000); el.textContent=(WIN_W<560?'':(G.phase==='mulligan'?'Mano ':(G.cur===me?'Tuo turno ':'Avversario ')))+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); el.className='timer'+(s<=15?' low':''); return left;
 }
 function tick(){
   const el=$('#tmr');

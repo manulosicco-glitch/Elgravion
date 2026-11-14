@@ -1426,6 +1426,21 @@ body:has(.endbox) :is(.emoban,.turnban,.reveal,.fogwave,.prompt,.kwfx,.peek){dis
 
 .btn.kofi{display:inline-flex;align-items:center;justify-content:center;margin:14px auto 8px;padding:12px 26px;font-size:17px;text-decoration:none;background:linear-gradient(180deg,#ff6f61,#d94a3d)!important;color:#fff!important;border-color:#ffb3a8!important;box-shadow:0 6px 18px #d94a3d66}
 .shdono .btn.kofi{display:flex;width:max-content}
+
+/* Vuldros: la testa (occhio e squama verde) sta sul bordo sinistro dell'immagine */
+img[src$="vuldros.jpg"]{object-fit:cover!important;object-position:12% 62%!important}
+
+/* seguace posato in attesa del bersaglio (Divinazione e simili) */
+.unit.staged{pointer-events:none;animation:stgLand .32s cubic-bezier(.2,1.4,.4,1) both;filter:saturate(.9) brightness(.95);box-shadow:0 0 0 2px #7fd4ff,0 0 22px #7fd4ffaa,0 6px 14px #000c!important;z-index:5}
+.unit.staged .stg-ring{position:absolute;inset:-2px;border-radius:inherit;border:2px dashed #bfeaff;opacity:.8;animation:stgPulse 1.1s ease-in-out infinite}
+@keyframes stgLand{0%{transform:translateY(-38px) scale(1.18);opacity:0}60%{transform:translateY(3px) scale(.98);opacity:1}100%{transform:none}}
+@keyframes stgPulse{0%,100%{opacity:.35}50%{opacity:.95}}
+.hand .mc.staging{opacity:.18!important;filter:grayscale(.7);transform:translateY(18px)!important}
+
+/* fluidità: ogni slot e ogni carta in mano ricalcola solo se stesso */
+.slot{contain:layout style}
+.hand .mc{contain:layout style}
+.board img,.hand img{image-rendering:auto}
 </style>
 </head>
 <body>
